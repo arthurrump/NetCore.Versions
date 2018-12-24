@@ -2,7 +2,11 @@ namespace VersionsOfDotNet
 
 open System
 open VersionsOfDotNet // To get our Version type, instead of the one in System
+#if FABLE_COMPILER
 open Thoth.Json
+#else
+open Thoth.Json.Net
+#endif
 
 module Data =
     // Helpers
