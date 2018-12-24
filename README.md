@@ -7,7 +7,7 @@
 This site is built using [Fable](http://fable.io), which converts the F# code in this repo into JavaScript that runs in your browser. To get it working, you first have to get all dependencies:
 ```
 npm install
-cd src
+cd src/app
 dotnet restore
 ```
 You can then run a webpack dev server to compile the site and see it in your browser:
