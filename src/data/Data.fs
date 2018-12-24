@@ -119,7 +119,7 @@ module Data =
     and Sdk = 
         { Version: Version
           VersionDisplay: DisplayVersion option
-          RuntimeVersion: Version
+          RuntimeVersion: Version option
           VsVersion: DisplayVersion option
           CsharpVersion: DisplayVersion option
           FsharpVersion: DisplayVersion option
@@ -131,7 +131,7 @@ module Data =
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
-                      RuntimeVersion = get.Required.Field "runtime-version" Decode.version
+                      RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
                       VsVersion = get.Optional.Field "vs-version" Decode.string
                       CsharpVersion = get.Optional.Field "csharp-version" Decode.string
                       FsharpVersion = get.Optional.Field "fsharp-version" Decode.string

@@ -67,9 +67,9 @@ module Release =
                             if fullSdkVersion r.Sdk then
                                 yield lif "Sdk version %O" r.Sdk.Version
                             match r.Sdk.VsVersion with SomeText v -> yield lif "Included in Visual Studio %s" v | _ -> ()
-                            match r.Sdk.CsharpLanguage with SomeText v -> yield lif "Supports C# %s" v | _ -> ()
-                            match r.Sdk.FsharpLanguage with SomeText v -> yield lif "Supports F# %s" v | _ -> ()
-                            match r.Sdk.VbLanguage with SomeText v -> yield lif "Supports Visual Basic %s" v | _ -> ()
+                            match r.Sdk.CsharpVersion with SomeText v -> yield lif "Supports C# %s" v | _ -> ()
+                            match r.Sdk.FsharpVersion with SomeText v -> yield lif "Supports F# %s" v | _ -> ()
+                            match r.Sdk.VbVersion with SomeText v -> yield lif "Supports Visual Basic %s" v | _ -> ()
                             match r.AspnetcoreRuntime with 
                             | Some a -> 
                                 yield lif "ASP.NET Core Runtime %O" a.Version
