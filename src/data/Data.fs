@@ -16,11 +16,6 @@ module Data =
                              | None -> (path, Decode.BadPrimitive("a version", value)) |> Result.Error
                          | Result.Error v -> Result.Error v)
 
-        let singleVersionAsList path value =
-            match version path value with
-            | Ok v -> Ok [ v ]
-            | Result.Error e -> Result.Error e
-
     let private getOptionalDate (get: Decode.IGetters) jsonName =
         get.Required.Field jsonName Decode.string
         |> fun s -> if String.IsNullOrWhiteSpace s then (false, DateTime()) else DateTime.TryParse(s)
@@ -83,6 +78,7 @@ module Data =
         { ReleaseDate: DateTime
           ReleaseVersion: Version
           Security: bool
+          CveList: string list option // (?) This field is null everywhere...
           ReleaseNotes: Url option
           Runtime: Runtime option
           Sdk: Sdk
@@ -95,6 +91,7 @@ module Data =
                     { ReleaseDate = get.Required.Field "release-date" Decode.datetime
                       ReleaseVersion = get.Required.Field "release-version" Decode.version
                       Security = get.Required.Field "security" Decode.bool
+                      CveList = get.Optional.Field "cve-list" (Decode.list Decode.string)
                       ReleaseNotes = get.Optional.Field "release-notes" Decode.string
                       Runtime = get.Optional.Field "runtime" Runtime.Decoder
                       Sdk = get.Required.Field "sdk" Sdk.Decoder
@@ -118,23 +115,23 @@ module Data =
     and Sdk = 
         { Version: Version
           VersionDisplay: DisplayVersion option
+          RuntimeVersion: Version
           VsVersion: DisplayVersion option
-          CsharpLanguage: DisplayVersion option
-          FsharpLanguage: DisplayVersion option
-          VbLanguage: DisplayVersion option
+          CsharpVersion: DisplayVersion option
+          FsharpVersion: DisplayVersion option
+          VbVersion: DisplayVersion option
           Files: File list }
 
         static member Decoder : Decode.Decoder<Sdk> =
             Decode.object
                 (fun get ->
-                    { Version = match get.Optional.Field "version" Decode.version with
-                                | Some v -> v
-                                | None -> get.Required.Field "version-sdk" Decode.version
+                    { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
+                      RuntimeVersion = get.Required.Field "runtime-version" Decode.version
                       VsVersion = get.Optional.Field "vs-version" Decode.string
-                      CsharpLanguage = get.Optional.Field "csharp-language" Decode.string
-                      FsharpLanguage = get.Optional.Field "fsharp-language" Decode.string
-                      VbLanguage = get.Optional.Field "vb-language" Decode.string
+                      CsharpVersion = get.Optional.Field "csharp-version" Decode.string
+                      FsharpVersion = get.Optional.Field "fsharp-version" Decode.string
+                      VbVersion = get.Optional.Field "vb-version" Decode.string
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and AspnetcoreRuntime =
@@ -149,8 +146,7 @@ module Data =
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       VersionAspnetcoremodule = 
-                        get.Optional.Field "version-aspnetcoremodule" 
-                            (Decode.oneOf [ Decode.list Decode.version; Decode.singleVersionAsList; Decode.nil [] ])
+                        get.Optional.Field "version-aspnetcoremodule" (Decode.list Decode.version)
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and Symbols =
@@ -165,6 +161,7 @@ module Data =
 
     and File =
         { Name: string
+          Rid: string option
           Url: Url
           Hash: string }
 
@@ -172,5 +169,6 @@ module Data =
             Decode.object
                 (fun get ->
                     { Name = get.Required.Field "name" Decode.string
+                      Rid = get.Optional.Field "rid" Decode.string
                       Url = get.Required.Field  "url" Decode.string
                       Hash = get.Required.Field "hash" Decode.string })
