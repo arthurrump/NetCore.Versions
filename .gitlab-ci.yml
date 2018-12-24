@@ -9,7 +9,7 @@ pages:
   - curl -sL https://deb.nodesource.com/setup_10.x | bash -
   - apt-get install -y nodejs
   - npm install
-  - cd src
+  - cd src/app
   - dotnet restore
   - dotnet fable webpack
   artifacts:

@@ -4,8 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
-    <Compile Include="Version.fs" />
-    <Compile Include="Data.fs" />
+    <Compile Include="..\data\Version.fs" Link="Version.fs" />
+    <Compile Include="..\data\Data.fs" Link="Data.fs" />
     <Compile Include="Fetch.fs" />
     <Compile Include="Search.fs" />
     <Compile Include="Release.fs" />

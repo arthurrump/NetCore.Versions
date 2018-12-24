@@ -5,9 +5,9 @@
 // See below if you need better fine-tuning of Webpack options
 
 var CONFIG = {
-    indexHtmlTemplate: "./src/index.html",
-    fsharpEntry: "./src/App.fsproj",
-    cssEntry: [ "./src/css/style.css", "./src/css/normalize.css" ],
+    indexHtmlTemplate: "./src/app/index.html",
+    fsharpEntry: "./src/app/App.fsproj",
+    cssEntry: [ "./src/app/css/style.css", "./src/app/css/normalize.css" ],
     outputDir: "./public",
     assetsDir: "./assets",
     devServerPort: 8080,
