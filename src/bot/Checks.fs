@@ -7,52 +7,30 @@ open System.Net.Http
 open System
 
 module Checks =
-    type Check<'t> = 't -> Async<Result<unit, string>>
-    type CheckList<'t> =
-        { Name: 't -> string
-          Checks: Check<'t> list }
-        member this.RunChecks data =
-            async {
-                let! results = this.Checks |> List.map (fun fn -> fn data) |> Async.Parallel
-                return       
-                    { Name = this.Name data
-                      Errors = 
-                        results 
-                        |> Array.choose (fun res -> match res with Ok _ -> None | Error mes -> Some mes) 
-                        |> Array.toList }
-            }
-    and CheckListResult =
-        { Name: string
-          Errors: string list }
+    type Check<'t> = 
+        | Check of name: string * check: ('t -> Async<Quotations.Expr<bool>>)
+        | CheckList of name: ('t -> string) * checks: Check<'t> list
+        | CheckMany of name: string * checks: ('t -> Async<Quotations.Expr<bool> list>)
 
-    let asyncCheck message fn data =
-        async {
-            let! quotation = fn data
-            try 
-                test quotation
-                return Ok ()
-            with
-            | :? AssertionFailedException as ex -> 
-                let steps = quotation |> reduceFully
-                let steps = 
-                    steps.[steps.Length - 2..] 
-                    |> List.map decompile 
-                    |> String.concat " => " 
-                    |> String.filter (fun c -> c <> '\n')
-                return Error <| sprintf "%s, but %s" message steps
-        }
+    type CheckResult =
+        | Single of name: string * result: Result<unit, string>
+        | ResultList of name: string * results: CheckResult list
 
-    let check message fn =
-        asyncCheck message (fun data -> async { return fn data })
+    let check name fn =
+        Check (name, fun data -> async { return fn data })
             
     let checklist name checks =
-        { Name = name; Checks = checks }
+        CheckList (name, checks)
 
-    let indexChannelChecks: CheckList<IndexEntry * Channel> =
+    let checkmany name fn =
+        CheckMany (name, fun data -> async { return fn data })
+
+    let checkAsync name fn =
+        Check (name, fn)
+
+    let indexChannelChecks: Check<IndexEntry * Channel> =
         checklist 
-            (fun (i, c) -> 
-                sprintf "Consistency between releases-index.json (channel %O) and releases.json (%O)" 
-                    i.ChannelVersion c.ChannelVersion)
+            (fun (_, c) -> sprintf "Consistency between releases-index.json and %O/releases.json" c.ChannelVersion)
             [ check "Index channel version should equal channel channel version" <|
                 fun (i, c) -> <@ i.ChannelVersion = c.ChannelVersion @>
               check "Index latest release should equal channel latest release" <|
@@ -68,7 +46,7 @@ module Checks =
               check "Index eol date should equal channel eol date" <|
                 fun (i, c) -> <@ i.EolDate = c.EolDate @> ]
 
-    let channelChecks: CheckList<Channel> =
+    let channelChecks: Check<Channel> =
         checklist (fun c -> sprintf "Consistency between channel %O information and releases" c.ChannelVersion)
             [ check "Latest release date should be newest in list of releases" <|
                 fun c -> 
@@ -96,14 +74,17 @@ module Checks =
                          |> List.maxBy (fun r -> r.ReleaseDate)
                          |> fun r -> r.Sdk.Version) @> ]
 
-    let releaseChecks: CheckList<Release> =
+    let wellFormedUri file =
+        <@ Uri.IsWellFormedUriString(file.Url, UriKind.Absolute) @>
+
+    let releaseChecks: Check<Release> =
         checklist (fun r -> sprintf "Release %O" r.ReleaseVersion)
             [ check "Release notes link should be well formed absolute uri" <|
                 fun r -> 
                     match r.ReleaseNotes with
                     | None -> <@ true @>
                     | Some url -> <@ Uri.IsWellFormedUriString(url, UriKind.Absolute) @>
-              asyncCheck "Request to release notes link should give status code 200 OK" <|
+              checkAsync "Request to release notes link should give status code 200 OK" <|
                 fun r -> async {
                     match r.ReleaseNotes with
                     | None -> return <@ true @>
@@ -113,18 +94,67 @@ module Checks =
                             let! res = http.GetAsync(url) |> Async.AwaitTask
                             return <@ res.StatusCode = HttpStatusCode.OK @>
                         else return <@ true @>
-                } ]
+                }
+              checkmany "File urls should be well formed absolute uris" <|
+                fun r -> 
+                    (r.Sdk.Files |> List.map wellFormedUri) @
+                    (match r.Runtime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
+                    (match r.AspnetcoreRuntime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
+                    (match r.Symbols with Some s -> s.Files |> List.map wellFormedUri | None -> []) ]
+
+    module private Async =
+        let map fn asyncThing =
+            async {
+                let! thing = asyncThing
+                return fn thing
+            }
+
+    let private doCheck name quotation =
+        try 
+            test quotation
+            Ok ()
+        with
+        | :? AssertionFailedException -> 
+            let steps = quotation |> reduceFully
+            let steps = 
+                steps.[steps.Length - 2..] 
+                |> List.map decompile 
+                |> String.concat " => " 
+                |> String.filter (fun c -> c <> '\n')
+            Error <| sprintf "%s, but %s" name steps
+
+    let rec run check data =
+        async {
+            match check with
+            | Check (name, fn) ->
+                let! quotation = fn data
+                let res = doCheck name quotation
+                return Single (name, res)
+            | CheckList (nameFn, checks) -> 
+                let! res = checks |> List.map (fun check -> run check data) |> Async.Parallel
+                return ResultList (nameFn data, (res |> Array.toList))
+            | CheckMany (name, fn) ->
+                let! quotations = fn data
+                let results = quotations |> List.map (doCheck name) |> List.map (fun res -> Single (name, res))
+                return ResultList (name, results)
+        }
 
     let runAllChecks data =
         [ for (index, channel) in data do
-            yield indexChannelChecks.RunChecks (index, channel)
-            yield channelChecks.RunChecks channel
-            yield! channel.Releases |> List.map (fun r -> releaseChecks.RunChecks r) ]
+            yield run indexChannelChecks (index, channel)
+            yield run channelChecks channel
+            yield! channel.Releases |> List.map (fun r -> run releaseChecks r) ]
+        |> Async.Parallel |> Async.map Array.toList
 
-    let sprintErrors results =
-        results
-        |> List.filter (fun res -> res.Errors.Length > 0)
-        |> List.map (fun res ->
-            res.Name + ":\n\t" + (res.Errors |> String.concat "\n\t"))
-        |> String.concat "\n\n"
+    let rec sprintErrors (result: CheckResult) =
+        match result with
+        | Single (_, result) ->
+            match result with
+            | Ok _ -> None
+            | Error mes -> Some mes
+        | ResultList (name, results) ->
+            let errors = results |> List.choose sprintErrors
+            if errors |> List.isEmpty
+            then None
+            else Some (name + ":\n\t" + (errors |> String.concat "\n\t"))
         

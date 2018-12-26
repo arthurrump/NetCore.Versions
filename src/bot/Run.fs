@@ -13,7 +13,7 @@ module Run =
 
     let getAll () =
         async {
-            let! indexJson = download "https://github.com/dotnet/core/raw/master/release-notes/releases-index.json"
+            let! indexJson = download "https://github.com/arthurrump/dotnet-core/raw/bottest/release-notes/releases-index.json"
             let decoder = Decode.object (fun get -> get.Required.Field "releases-index" (Decode.list IndexEntry.Decoder))
             match Decode.fromString decoder indexJson with
             | Error ex -> return Error ex
@@ -22,12 +22,17 @@ module Run =
                     indexes
                     |> List.map (fun i -> 
                         async {
-                            let! channelJson = download <| i.ReleasesJson.Replace("blob/master", "raw/master")
+                            let! channelJson = download <| i.ReleasesJson.Replace("dotnet/core/blob/master", "arthurrump/dotnet-core/raw/bottest")
                             return i, Decode.fromString Channel.Decoder channelJson 
                         })
                     |> Async.Parallel
                 return Ok (pairs |> Array.toList)
         }
+
+    let maxLines num (text: string) =
+        let lines = text.Split('\n')
+        if num >= lines.Length then text
+        else (lines.[..num - 1] |> String.concat "\n") + "\n..."
 
     [<EntryPoint>]
     let main argv =
@@ -37,13 +42,13 @@ module Run =
         | Ok pairs ->
             pairs 
             |> List.choose (fun (i, rc) -> match rc with Ok _ -> None | Error mes -> Some (i, mes))
-            |> List.iter (fun (i, mes) -> printfn "Error parsing %s: %s" i.ReleasesJson mes)
+            |> List.iter (fun (i, mes) -> printfn "Error parsing %s: %s\n" i.ReleasesJson (maxLines 7 mes))
 
             pairs 
             |> List.choose (fun (i, rc) -> match rc with Ok r -> Some (i, r) | Error _ -> None)
-            |> Checks.runAllChecks
-            |> Async.Parallel |> Async.RunSynchronously |> Array.toList
-            |> Checks.sprintErrors
+            |> Checks.runAllChecks |> Async.RunSynchronously 
+            |> List.choose Checks.sprintErrors
+            |> String.concat "\n\n"
             |> printfn "%s"
         
         0
