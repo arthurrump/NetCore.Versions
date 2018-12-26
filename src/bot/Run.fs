@@ -42,6 +42,7 @@ module Run =
             pairs 
             |> List.choose (fun (i, rc) -> match rc with Ok r -> Some (i, r) | Error _ -> None)
             |> Checks.runAllChecks
+            |> Async.Parallel |> Async.RunSynchronously |> Array.toList
             |> Checks.sprintErrors
             |> printfn "%s"
         

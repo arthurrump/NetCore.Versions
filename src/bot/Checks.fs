@@ -7,30 +7,43 @@ open System.Net.Http
 open System
 
 module Checks =
-    type Check<'t> = 't -> Result<unit, string>
+    type Check<'t> = 't -> Async<Result<unit, string>>
     type CheckList<'t> =
         { Name: 't -> string
           Checks: Check<'t> list }
         member this.RunChecks data =
-            { Name = this.Name data
-              Errors =
-                this.Checks
-                |> List.map (fun fn -> fn data)
-                |> List.choose (fun res -> match res with Ok _ -> None | Error mes -> Some mes) }
+            async {
+                let! results = this.Checks |> List.map (fun fn -> fn data) |> Async.Parallel
+                return       
+                    { Name = this.Name data
+                      Errors = 
+                        results 
+                        |> Array.choose (fun res -> match res with Ok _ -> None | Error mes -> Some mes) 
+                        |> Array.toList }
+            }
     and CheckListResult =
         { Name: string
           Errors: string list }
 
-    let check message fn data =
-        let quotation = fn data
-        try 
-            test quotation
-            Ok ()
-        with
-        | :? AssertionFailedException as ex -> 
-            let steps = quotation |> reduceFully
-            let steps = steps.[steps.Length - 2..] |> List.map decompile |> String.concat " => " |> String.filter (fun c -> c <> '\n')
-            Error <| sprintf "%s, but %s" message steps
+    let asyncCheck message fn data =
+        async {
+            let! quotation = fn data
+            try 
+                test quotation
+                return Ok ()
+            with
+            | :? AssertionFailedException as ex -> 
+                let steps = quotation |> reduceFully
+                let steps = 
+                    steps.[steps.Length - 2..] 
+                    |> List.map decompile 
+                    |> String.concat " => " 
+                    |> String.filter (fun c -> c <> '\n')
+                return Error <| sprintf "%s, but %s" message steps
+        }
+
+    let check message fn =
+        asyncCheck message (fun data -> async { return fn data })
             
     let checklist name checks =
         { Name = name; Checks = checks }
@@ -90,16 +103,17 @@ module Checks =
                     match r.ReleaseNotes with
                     | None -> <@ true @>
                     | Some url -> <@ Uri.IsWellFormedUriString(url, UriKind.Absolute) @>
-              check "Request to release notes link should give status code 200 OK" <|
-                fun r -> 
+              asyncCheck "Request to release notes link should give status code 200 OK" <|
+                fun r -> async {
                     match r.ReleaseNotes with
-                    | None -> <@ true @>
+                    | None -> return <@ true @>
                     | Some url ->
                         if Uri.IsWellFormedUriString(url, UriKind.Absolute) then
                             use http = new HttpClient()
-                            let res = http.GetAsync(url) |> Async.AwaitTask |> Async.RunSynchronously
-                            <@ res.StatusCode = HttpStatusCode.OK @>
-                        else <@ true @> ]
+                            let! res = http.GetAsync(url) |> Async.AwaitTask
+                            return <@ res.StatusCode = HttpStatusCode.OK @>
+                        else return <@ true @>
+                } ]
 
     let runAllChecks data =
         [ for (index, channel) in data do
@@ -113,3 +127,4 @@ module Checks =
         |> List.map (fun res ->
             res.Name + ":\n\t" + (res.Errors |> String.concat "\n\t"))
         |> String.concat "\n\n"
+        
