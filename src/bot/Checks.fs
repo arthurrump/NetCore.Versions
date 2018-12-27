@@ -13,7 +13,7 @@ module Checks =
         | CheckMany of name: string * checks: ('t -> Async<Quotations.Expr<bool> list>)
 
     type CheckResult =
-        | Single of name: string * result: Result<unit, string>
+        | Single of name: string option * result: Result<unit, string>
         | ResultList of name: string * results: CheckResult list
 
     let check name fn =
@@ -46,7 +46,7 @@ module Checks =
               check "Index eol date should equal channel eol date" <|
                 fun (i, c) -> <@ i.EolDate = c.EolDate @> ]
 
-    let channelChecks: Check<Channel> =
+    let channelChecks now: Check<Channel> =
         checklist (fun c -> sprintf "Consistency between channel %O information and releases" c.ChannelVersion)
             [ check "Latest release date should be newest in list of releases" <|
                 fun c -> 
@@ -72,7 +72,18 @@ module Checks =
                     <@ c.LatestSdk =
                         (c.Releases
                          |> List.maxBy (fun r -> r.ReleaseDate)
-                         |> fun r -> r.Sdk.Version) @> ]
+                         |> fun r -> r.Sdk.Version) @>
+              checkmany "Preview channel should only have preview releases" <|
+                fun c ->
+                    match c.SupportPhase with
+                    | "preview" ->
+                        c.Releases |> List.map (fun r -> <@ Version.isPreview r.ReleaseVersion @>)
+                    | _ -> [ <@ true @> ]
+              check "Channel with eol-date in the past should have support-phase eol" <|
+                fun c ->
+                    if Option.exists (fun date -> date <= now) c.EolDate
+                    then <@ c.SupportPhase = "eol" @> 
+                    else <@ c.SupportPhase <> "eol" @>]
 
     let wellFormedUri file =
         <@ Uri.IsWellFormedUriString(file.Url, UriKind.Absolute) @>
@@ -109,7 +120,7 @@ module Checks =
                 return fn thing
             }
 
-    let private doCheck name quotation =
+    let private doCheck quotation =
         try 
             test quotation
             Ok ()
@@ -117,44 +128,51 @@ module Checks =
         | :? AssertionFailedException -> 
             let steps = quotation |> reduceFully
             let steps = 
-                steps.[steps.Length - 2..] 
+                steps.[steps.Length - 2..]
                 |> List.map decompile 
                 |> String.concat " => " 
                 |> String.filter (fun c -> c <> '\n')
-            Error <| sprintf "%s, but %s" name steps
+            Error steps
 
     let rec run check data =
         async {
             match check with
             | Check (name, fn) ->
                 let! quotation = fn data
-                let res = doCheck name quotation
-                return Single (name, res)
+                let res = doCheck quotation
+                return Single (Some name, res)
             | CheckList (nameFn, checks) -> 
                 let! res = checks |> List.map (fun check -> run check data) |> Async.Parallel
                 return ResultList (nameFn data, (res |> Array.toList))
             | CheckMany (name, fn) ->
                 let! quotations = fn data
-                let results = quotations |> List.map (doCheck name) |> List.map (fun res -> Single (name, res))
+                let results = quotations |> List.map doCheck |> List.map (fun res -> Single (None, res))
                 return ResultList (name, results)
         }
 
     let runAllChecks data =
+        let now = DateTime.UtcNow
         [ for (index, channel) in data do
             yield run indexChannelChecks (index, channel)
-            yield run channelChecks channel
+            yield run (channelChecks now) channel
             yield! channel.Releases |> List.map (fun r -> run releaseChecks r) ]
         |> Async.Parallel |> Async.map Array.toList
 
-    let rec sprintErrors (result: CheckResult) =
-        match result with
-        | Single (_, result) ->
+    let sprintErrors (result: CheckResult) =
+        let rec sprint n result =
+            let indent = String.replicate n "\t"
             match result with
-            | Ok _ -> None
-            | Error mes -> Some mes
-        | ResultList (name, results) ->
-            let errors = results |> List.choose sprintErrors
-            if errors |> List.isEmpty
-            then None
-            else Some (name + ":\n\t" + (errors |> String.concat "\n\t"))
+            | Single (name, result) ->
+                match result with
+                | Ok _ -> None
+                | Error err -> 
+                    match name with
+                    | Some name -> Some <| sprintf "%s%s, but %s" indent name err
+                    | None -> Some <| indent + "But " + err
+            | ResultList (name, results) ->
+                let errors = results |> List.choose (sprint (n + 1))
+                if errors |> List.isEmpty
+                then None
+                else Some (indent + name + ":\n" + (errors |> String.concat "\n"))
+        sprint 0 result
         

@@ -3,6 +3,7 @@ namespace VersionsOfDotNet
 open Data
 open System.Net.Http
 open Thoth.Json.Net
+open System
 
 module Run =
     let download (url: Url) =
@@ -42,7 +43,10 @@ module Run =
         | Ok pairs ->
             pairs 
             |> List.choose (fun (i, rc) -> match rc with Ok _ -> None | Error mes -> Some (i, mes))
-            |> List.iter (fun (i, mes) -> printfn "Error parsing %s: %s\n" i.ReleasesJson (maxLines 7 mes))
+            |> List.iter (fun (i, mes) -> 
+                let urlSegments = Uri(i.ReleasesJson).Segments
+                let filename = urlSegments.[urlSegments.Length - 2..] |> String.concat ""
+                printfn "Error parsing %s: %s\n" filename (maxLines 7 mes))
 
             pairs 
             |> List.choose (fun (i, rc) -> match rc with Ok r -> Some (i, r) | Error _ -> None)
