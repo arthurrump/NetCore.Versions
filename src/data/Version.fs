@@ -5,15 +5,20 @@ open System
 #nowarn "342" // Don't warn about implementing Equals
 
 [<CustomComparison; StructuralEquality>]
+[<StructuredFormatDisplay("{String}")>] // Prints as a normal version string when "%A" is used
 type Version =
     { Numbers: int list
       Preview: string option }
 
-    override v.ToString() =
-        let s = v.Numbers |> List.map string |> List.reduce (sprintf "%s.%s")
-        match v.Preview with
+    // StructuredFormatDisplay only works with properties
+    member private this.String =
+        let s = this.Numbers |> List.map string |> String.concat "."
+        match this.Preview with
         | Some preview -> sprintf "%s-%s" s preview
         | None -> s
+
+    override this.ToString() = 
+        this.String
 
     member this.CompareTo(other) =
         match compare this.Numbers other.Numbers with
@@ -80,3 +85,6 @@ module Version =
         | None -> true
 
     let (|Version|_|) input = parse input
+
+    let isPreview version =
+        version.Preview.IsSome
