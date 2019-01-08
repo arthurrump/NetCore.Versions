@@ -14,7 +14,7 @@ module Run =
 
     let getAll () =
         async {
-            let! indexJson = download "https://github.com/arthurrump/dotnet-core/raw/bottest/release-notes/releases-index.json"
+            let! indexJson = download "https://github.com/arthurrump/dotnet-core/raw/master/release-notes/releases-index.json"
             let decoder = Decode.object (fun get -> get.Required.Field "releases-index" (Decode.list IndexEntry.Decoder))
             match Decode.fromString decoder indexJson with
             | Error ex -> return Error ex
@@ -23,7 +23,7 @@ module Run =
                     indexes
                     |> List.map (fun i -> 
                         async {
-                            let! channelJson = download <| i.ReleasesJson.Replace("dotnet/core/blob/master", "arthurrump/dotnet-core/raw/bottest")
+                            let! channelJson = download <| i.ReleasesJson.Replace("https://dotnetcli.blob.core.windows.net/dotnet/release-metadata", "https://github.com/arthurrump/dotnet-core/raw/master/release-notes")
                             return i, Decode.fromString Channel.Decoder channelJson 
                         })
                     |> Async.Parallel
