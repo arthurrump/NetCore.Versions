@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\data\Version.fs" Link="Version.fs" />
@@ -9,8 +9,11 @@
     <Compile Include="Checks.fs" />
     <Compile Include="GitHub.fs" />
     <Compile Include="Run.fs" />
+    <Compile Include="Server.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Giraffe" Version="3.5.0" />
+    <PackageReference Include="Microsoft.AspNetCore.App" Version="2.2.1" />
     <PackageReference Include="Thoth.Json.Net" Version="2.5.0" />
     <PackageReference Include="unquote" Version="4.0.0" />
   </ItemGroup>
