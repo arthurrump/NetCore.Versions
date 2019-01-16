@@ -38,7 +38,7 @@ type Version =
 
 module Version =
     module private Int =
-        let parse i = 
+        let parse (i : string) = 
             match Int32.TryParse i with
             | (true, r) -> Some r
             | _ -> None
