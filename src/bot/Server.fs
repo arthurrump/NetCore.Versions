@@ -75,7 +75,7 @@ module Server =
             | CheckSuiteEvent { Action = Requested; CommitHash = hash; RepoFullName = repo } 
             | CheckSuiteEvent { Action = CheckSuiteAction.Rerequested; CommitHash = hash; RepoFullName = repo }
             | CheckRunEvent { Action = Rerequested; CommitHash = hash; RepoFullName = repo } -> 
-                // TODO: Create GitHub check and run checks
+                Run.runChecks repo hash |> Async.Start
                 return! Successful.NO_CONTENT next ctx
             | Ping ->
                 return! Successful.OK "ping" next ctx

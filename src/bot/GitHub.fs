@@ -111,12 +111,6 @@ module GitHub =
             | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
             | Error e -> Error e
 
-    let previewHttpClient () =
-        let http = new HttpClient()
-        http.DefaultRequestHeaders.Accept.Clear()
-        http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github.antiope-preview+json")
-        http
-
     let url parts =
         "https://api.github.com/" + (parts |> String.concat "/")
 
@@ -124,8 +118,8 @@ module GitHub =
         | JsonParseError of string
         | HttpError of HttpStatusCode
 
-    let postNewChecksRun (http : HttpClient) owner repo (run: CheckRun) = async {
-        let url = url [ owner; repo; "check-runs" ]
+    let postNewChecksRun (http : HttpClient) repo (run: CheckRun) = async {
+        let url = url [ repo; "check-runs" ]
         let! resp = http.PostAsync(url, new StringContent(run.Encode() |> Encode.toString 0)) |> Async.AwaitTask
         if resp.IsSuccessStatusCode then
             let! content = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
@@ -137,8 +131,8 @@ module GitHub =
             return Error (HttpError resp.StatusCode)
     }
 
-    let updateChecksRun (http : HttpClient) owner repo id (run : CheckRun) = async {
-        let url = url [ owner; repo; "check-runs"; string id ]
+    let updateChecksRun (http : HttpClient) repo id (run : CheckRun) = async {
+        let url = url [ repo; "check-runs"; string id ]
         use req = new HttpRequestMessage()
         req.Method <- HttpMethod("PATCH")
         req.RequestUri <- Uri(url)
