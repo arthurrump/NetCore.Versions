@@ -85,8 +85,9 @@ module Server =
 
     let webApp =
         choose [ 
-            route "/" >=> redirectTo true "https://github.com/apps/versionsof-net-checks"
-            route "/hook" >=> handleWebhook
+            GET >=> redirectTo true "https://github.com/apps/versionsof-net-checks"
+            POST >=> route "/hook" >=> handleWebhook
+            RequestErrors.NOT_FOUND "Not found."
         ]
 
     let configureApp (app : IApplicationBuilder) =
