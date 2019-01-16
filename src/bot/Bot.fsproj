@@ -17,4 +17,7 @@
     <PackageReference Include="Thoth.Json.Net" Version="2.5.0" />
     <PackageReference Include="unquote" Version="4.0.0" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="web.config" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
