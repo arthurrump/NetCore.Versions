@@ -1,5 +1,7 @@
 public/
 
+.vscode/
+
 # Node
 node_modules/
 
