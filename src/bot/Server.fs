@@ -14,7 +14,7 @@ open GitHub
 open Thoth.Json.Net
 
 module Server =
-    let secret = "secret" // TODO: get from environment
+    let secret = Environment.GetEnvironmentVariable("GITHUB_WEBHOOK_SECRET")
 
     let (|Prefix|_|) (p:string) (s:string) =
         if s.StartsWith(p) then Some(s.Substring(p.Length))
