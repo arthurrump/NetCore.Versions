@@ -94,7 +94,7 @@ module Server =
         app.UseGiraffe webApp
 
     let configureServices (services : IServiceCollection) =
-        services.AddGiraffe |> ignore
+        services.AddGiraffe() |> ignore
 
     [<EntryPoint>]
     let main _ =
