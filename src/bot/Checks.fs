@@ -1,10 +1,12 @@
 namespace VersionsOfDotNet
 
 open Data
-open Swensen.Unquote
+
+open System
 open System.Net
 open System.Net.Http
-open System
+
+open Swensen.Unquote
 
 module Checks =
     type Check<'t> = 
@@ -112,13 +114,6 @@ module Checks =
                     (match r.Runtime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
                     (match r.AspnetcoreRuntime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
                     (match r.Symbols with Some s -> s.Files |> List.map wellFormedUri | None -> []) ]
-
-    module private Async =
-        let map fn asyncThing =
-            async {
-                let! thing = asyncThing
-                return fn thing
-            }
 
     let private doCheck quotation =
         try 

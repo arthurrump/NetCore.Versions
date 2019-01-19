@@ -1,181 +1,131 @@
 namespace VersionsOfDotNet
 
-open System
-open Thoth.Json.Net
-open System.Net.Http
-open System.Net
-open JWT.Builder
-open JWT.Algorithms
-open System.Security.Cryptography.X509Certificates
-open System.Security.Cryptography
+open FSharp.Control.Tasks.V2.ContextInsensitive
+
+open Giraffe
+open Microsoft.AspNetCore.Http
+
 open System.Text
-open System.Net.Http.Headers
-open JWT
 open System.Security.Cryptography
+
+open Thoth.Json.Net
+
+open GitHubJwt
+open Octokit
 
 module GitHub =
-    type CheckRun =
-        { Name: string
-          HeadSha: string
-          Status: CheckRunStatus
-          Output: CheckRunOutput option }
+    module Webhook = 
+        type Event =
+            { CommitHash: string
+              RepoOwner: string
+              RepoName: string
+              InstallationId: int64 }
 
-        member this.Encode() =
-            Encode.object <|
-                [ yield "name", Encode.string this.Name
-                  yield "head-sha", Encode.string this.HeadSha
-                  match this.Output with 
-                  | Some output -> yield "output", output.Encode() 
-                  | None -> () ] 
-                @ this.Status.Encode()
+            static member Decoder eventType : Decode.Decoder<Event> =
+                Decode.object (fun get ->
+                    { CommitHash = get.Required.At [ eventType; "head_sha" ] Decode.string
+                      RepoOwner = get.Required.At [ "repository"; "owner"; "login" ] Decode.string 
+                      RepoName = get.Required.At [ "repository"; "name" ] Decode.string
+                      InstallationId = get.Required.At [ "installation"; "id" ] Decode.int64 })
 
-    and CheckRunStatus =
-        | Queued
-        | InProgress
-        | Completed of CheckRunConclusion * completedAt: DateTimeOffset
+        type CheckSuiteAction =
+            | Completed
+            | Requested
+            | Rerequested
 
-        member this.Encode() =
-            match this with
-            | Queued -> [ "status", Encode.string "queued" ]
-            | InProgress -> [ "status", Encode.string "in_progress" ]
-            | Completed (conclusion, completedAt) ->
-                [ "status", Encode.string "completed"
-                  "conclusion", conclusion.Encode()
-                  "completed_at", Encode.datetime completedAt.UtcDateTime ]
-    
-    and CheckRunConclusion =
-        | Success
-        | Failure
-        | Neutral
-        | Cancelled
-        | TimedOut
+            static member Decoder path value =
+                let str = Decode.string path value
+                match str with
+                | Ok "completed" -> Ok Completed
+                | Ok "requested" -> Ok Requested
+                | Ok "rerequested" -> Ok Rerequested
+                | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
+                | Error e -> Error e
 
-        member this.Encode() =
-            match this with
-            | Success -> Encode.string "success"
-            | Failure -> Encode.string "failure"
-            | Neutral -> Encode.string "neutral"
-            | Cancelled -> Encode.string "cancelled"
-            | TimedOut -> Encode.string "timed_out"
+        type CheckRunAction =
+            | Created
+            | Rerequested
+            | RequestedAction
 
-    and CheckRunOutput = 
-        { Title: string
-          Summary: string
-          Text: string }
+            static member Decoder path value =
+                let str = Decode.string path value
+                match str with
+                | Ok "created" -> Ok Created
+                | Ok "rerequested" -> Ok Rerequested
+                | Ok "requested_action" -> Ok RequestedAction
+                | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
+                | Error e -> Error e
 
-        member this.Encode() =
-            Encode.object
-                [ "title", Encode.string this.Title
-                  "summary", Encode.string this.Summary
-                  "text", Encode.string this.Text ]
+        let validDeliveryHeader = Option.isSome
 
-    type CheckSuiteEvent =
-        { Action: CheckSuiteAction
-          CommitHash: string
-          RepoFullName: string }
+        let validUserAgent = Option.exists <| fun (h : string) -> h.StartsWith "GitHub-Hookshot/"
 
-        static member Decoder : Decode.Decoder<CheckSuiteEvent> =
-            Decode.object (fun get ->
-                { Action = get.Required.Field "action" CheckSuiteAction.Decoder
-                  CommitHash = get.Required.At [ "check_suite"; "head_sha" ] Decode.string
-                  RepoFullName = get.Required.At [ "repository"; "full_name" ] Decode.string })
+        let validSignature (secret : string) (header : string option) (body : string) =
+            match header with
+            | Some (Prefix "sha1=" signature) ->
+                let bodyBytes = Encoding.ASCII.GetBytes body
+                let secretBytes = Encoding.ASCII.GetBytes secret
 
-    and CheckSuiteAction =
-        | Completed
-        | Requested
-        | Rerequested
+                use sha1 = new HMACSHA1(secretBytes) // DevSkim: ignore DS126858 
+                let hash = 
+                    sha1.ComputeHash bodyBytes 
+                    |> Array.map (fun b -> b.ToString("x2"))
+                    |> String.concat ""
+                
+                hash = signature
+            | Some _ | None -> false
 
-        static member Decoder path value =
-            let str = Decode.string path value
-            match str with
-            | Ok "completed" -> Ok Completed
-            | Ok "requested" -> Ok Requested
-            | Ok "rerequested" -> Ok Rerequested
-            | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
-            | Error e -> Error e
+        type Request =
+            | CheckSuiteEvent of CheckSuiteAction * Event
+            | CheckRunEvent of CheckRunAction * Event
+            | Ping
+            | Invalid
 
-    type CheckRunEvent =
-        { Action: CheckRunAction
-          CommitHash: string
-          RepoFullName: string }
-        
-        static member Decoder : Decode.Decoder<CheckRunEvent> =
-            Decode.object (fun get ->
-                { Action = get.Required.Field "action" CheckRunAction.Decoder
-                  CommitHash = get.Required.At [ "check_run"; "head_sha" ] Decode.string
-                  RepoFullName = get.Required.At [ "repository"; "full_name" ] Decode.string })
+        let tryGetWebhookRequest webhookSecret (ctx : HttpContext) = task {
+            let delivery = ctx.TryGetRequestHeader "X-GitHub-Delivery"
+            let userAgent = ctx.TryGetRequestHeader "User-Agent"
+            let signature = ctx.TryGetRequestHeader "X-Hub-Signature"
+            let event = ctx.TryGetRequestHeader "X-GitHub-Event"
 
-    and CheckRunAction =
-        | Created
-        | Rerequested
-        | RequestedAction
+            if validDeliveryHeader delivery && validUserAgent userAgent then
+                let! body = ctx.ReadBodyFromRequestAsync ()
+                if validSignature webhookSecret signature body then
+                    match event with
+                    | Some "check_suite" ->
+                        match body |> Decode.fromString (Event.Decoder "check_suite") with
+                        | Ok event -> 
+                            match body |> Decode.fromString (Decode.field "action" CheckSuiteAction.Decoder) with
+                            | Ok action -> return CheckSuiteEvent (action, event)
+                            | Error _ -> return Invalid
+                        | Error _ -> return Invalid
+                    | Some "check_run" -> 
+                        match body |> Decode.fromString (Event.Decoder "check_run") with
+                        | Ok event -> 
+                            match body |> Decode.fromString (Decode.field "action" CheckRunAction.Decoder) with
+                            | Ok action -> return CheckRunEvent (action, event)
+                            | Error _ -> return Invalid
+                        | Error _ -> return Invalid
+                    | Some "ping" -> return Ping
+                    | Some _ | None -> return Invalid
+                else return Invalid
+            else return Invalid
+        }
 
-        static member Decoder path value =
-            let str = Decode.string path value
-            match str with
-            | Ok "created" -> Ok Created
-            | Ok "rerequested" -> Ok Rerequested
-            | Ok "requested_action" -> Ok RequestedAction
-            | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
-            | Error e -> Error e
+    let jwtGenerator appId privateKey =
+        GitHubJwtFactory(
+            StringPrivateKeySource(privateKey),
+            GitHubJwtFactoryOptions(
+                AppIntegrationId = appId,
+                ExpirationSeconds = 120))
 
-    let url parts =
-        "https://api.github.com/" + (parts |> String.concat "/")
+    let appClient jwt =
+        GitHubClient(
+            ProductHeaderValue("Versionsof.net Checks"),
+            Credentials = Credentials(jwt, AuthenticationType.Bearer))
 
-    type Error =
-        | JsonParseError of string
-        | HttpError of HttpStatusCode
-
-    let postNewChecksRun (http : HttpClient) repo (run: CheckRun) = async {
-        let url = url [ repo; "check-runs" ]
-        let! resp = http.PostAsync(url, new StringContent(run.Encode() |> Encode.toString 0)) |> Async.AwaitTask
-        if resp.IsSuccessStatusCode then
-            let! content = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
-            let id = Decode.fromString (Decode.field "id" Decode.int) content
-            match id with
-            | Ok id -> return Ok id
-            | Error e -> return Error (JsonParseError e)
-         else
-            return Error (HttpError resp.StatusCode)
-    }
-
-    let updateChecksRun (http : HttpClient) repo id (run : CheckRun) = async {
-        let url = url [ repo; "check-runs"; string id ]
-        use req = new HttpRequestMessage()
-        req.Method <- HttpMethod("PATCH")
-        req.RequestUri <- Uri(url)
-        req.Content <- new StringContent(run.Encode() |> Encode.toString 0)
-        let! resp = http.SendAsync(req) |> Async.AwaitTask
-        if resp.IsSuccessStatusCode 
-        then return Ok ()
-        else return Error (HttpError resp.StatusCode)
-    }
-
-    type RS256PrivateKeyAlgorithm(key : RSA) =
-        interface IJwtAlgorithm with
-            member __.Name = JwtHashAlgorithm.RS256.ToString()
-            member __.IsAsymmetric = true
-            member __.Sign(_, bytesToSign : byte[]) =
-                key.SignData(bytesToSign, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)
-
-    let getAccessToken (http : HttpClient) (privateKey : string) appId installationId = async {
-        let now = DateTime.UtcNow
-        use key = CngKey.Import([||], CngKeyBlobFormat.Pkcs8PrivateBlob) // TODO fix
-        let jwt = 
-            JwtBuilder()
-                .Issuer(appId)
-                .IssuedAt(now)
-                .ExpirationTime(now.AddMinutes(2.))
-                .WithAlgorithm(RS256Algorithm(cert))
-                .Build()
-        let url = url [ "app"; "installations"; installationId; "access_tokens" ]
-        http.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("Bearer", jwt)
-        let! resp = http.PostAsync(url, new StringContent("")) |> Async.AwaitTask
-        if resp.IsSuccessStatusCode then
-            let! data = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
-            let token = data |> Decode.fromString (Decode.field "token" Decode.string)
-            match token with
-            | Ok t -> return Ok t
-            | Error e -> return Error (JsonParseError e)
-        else return Error (HttpError resp.StatusCode)
+    let installationClient (appClient : GitHubClient) installationId = task {
+        let! token = appClient.GitHubApps.CreateInstallationToken(installationId)
+        return GitHubClient(
+            ProductHeaderValue("Versionsof.net Checks - Installation #" + string installationId),
+            Credentials = Credentials(token.Token))
     }
