@@ -99,6 +99,7 @@ module Run =
         use githubClient = new HttpClient()
         githubClient.DefaultRequestHeaders.Accept.Clear()
         githubClient.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github.antiope-preview+json")
+        // TODO: authentication
         let postNewChecksRun = postNewChecksRun githubClient repo
         let updateChecksRun = updateChecksRun githubClient repo
 

@@ -14,7 +14,9 @@ open GitHub
 open Thoth.Json.Net
 
 module Server =
-    let secret = Environment.GetEnvironmentVariable("GITHUB_WEBHOOK_SECRET")
+    let webhookSecret = Environment.GetEnvironmentVariable("GITHUB_WEBHOOK_SECRET")
+    let appId = Environment.GetEnvironmentVariable("GITHUB_APP_ID")
+    let privateKey = Environment.GetEnvironmentVariable("GITHUB_PRIVATE_KEY")
 
     let (|Prefix|_|) (p:string) (s:string) =
         if s.StartsWith(p) then Some(s.Substring(p.Length))
@@ -53,7 +55,7 @@ module Server =
 
         if validDeliveryHeader delivery && validUserAgent userAgent then
             let! body = ctx.ReadBodyFromRequestAsync ()
-            if validSignature secret signature body then
+            if validSignature webhookSecret signature body then
                 match event with
                 | Some "check_suite" -> 
                     match body |> Decode.fromString CheckSuiteEvent.Decoder with

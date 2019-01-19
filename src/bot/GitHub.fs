@@ -4,6 +4,14 @@ open System
 open Thoth.Json.Net
 open System.Net.Http
 open System.Net
+open JWT.Builder
+open JWT.Algorithms
+open System.Security.Cryptography.X509Certificates
+open System.Security.Cryptography
+open System.Text
+open System.Net.Http.Headers
+open JWT
+open System.Security.Cryptography
 
 module GitHub =
     type CheckRun =
@@ -140,5 +148,34 @@ module GitHub =
         let! resp = http.SendAsync(req) |> Async.AwaitTask
         if resp.IsSuccessStatusCode 
         then return Ok ()
-        else return Error resp.StatusCode
+        else return Error (HttpError resp.StatusCode)
+    }
+
+    type RS256PrivateKeyAlgorithm(key : RSA) =
+        interface IJwtAlgorithm with
+            member __.Name = JwtHashAlgorithm.RS256.ToString()
+            member __.IsAsymmetric = true
+            member __.Sign(_, bytesToSign : byte[]) =
+                key.SignData(bytesToSign, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)
+
+    let getAccessToken (http : HttpClient) (privateKey : string) appId installationId = async {
+        let now = DateTime.UtcNow
+        use key = CngKey.Import([||], CngKeyBlobFormat.Pkcs8PrivateBlob) // TODO fix
+        let jwt = 
+            JwtBuilder()
+                .Issuer(appId)
+                .IssuedAt(now)
+                .ExpirationTime(now.AddMinutes(2.))
+                .WithAlgorithm(RS256Algorithm(cert))
+                .Build()
+        let url = url [ "app"; "installations"; installationId; "access_tokens" ]
+        http.DefaultRequestHeaders.Authorization <- AuthenticationHeaderValue("Bearer", jwt)
+        let! resp = http.PostAsync(url, new StringContent("")) |> Async.AwaitTask
+        if resp.IsSuccessStatusCode then
+            let! data = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
+            let token = data |> Decode.fromString (Decode.field "token" Decode.string)
+            match token with
+            | Ok t -> return Ok t
+            | Error e -> return Error (JsonParseError e)
+        else return Error (HttpError resp.StatusCode)
     }
