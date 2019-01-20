@@ -129,21 +129,20 @@ module Checks =
                 |> String.filter (fun c -> c <> '\n')
             Error steps
 
-    let rec run check data =
-        async {
-            match check with
-            | Check (name, fn) ->
-                let! quotation = fn data
-                let res = doCheck quotation
-                return Single (Some name, res)
-            | CheckList (nameFn, checks) -> 
-                let! res = checks |> List.map (fun check -> run check data) |> Async.Parallel
-                return ResultList (nameFn data, (res |> Array.toList))
-            | CheckMany (name, fn) ->
-                let! quotations = fn data
-                let results = quotations |> List.map doCheck |> List.map (fun res -> Single (None, res))
-                return ResultList (name, results)
-        }
+    let rec run check data = async {
+        match check with
+        | Check (name, fn) ->
+            let! quotation = fn data
+            let res = doCheck quotation
+            return Single (Some name, res)
+        | CheckList (nameFn, checks) -> 
+            let! res = checks |> List.map (fun check -> run check data) |> Async.Parallel
+            return ResultList (nameFn data, (res |> Array.toList))
+        | CheckMany (name, fn) ->
+            let! quotations = fn data
+            let results = quotations |> List.map doCheck |> List.map (fun res -> Single (None, res))
+            return ResultList (name, results)
+    }
 
     let runAllChecks data =
         let now = DateTime.UtcNow
@@ -158,9 +157,7 @@ module Checks =
         | Single (_, result) ->
             match result with
             | Ok _ -> 0
-            | Error msg -> 
-                printfn "Error: %s" msg
-                1
+            | Error _ -> 1
         | ResultList (_, results) ->
             results
             |> List.map errorCount
