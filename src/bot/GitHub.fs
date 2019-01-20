@@ -120,12 +120,12 @@ module GitHub =
 
     let appClient jwt =
         GitHubClient(
-            ProductHeaderValue("Versionsof.net Checks"),
+            ProductHeaderValue("versionsof-net-checks"),
             Credentials = Credentials(jwt, AuthenticationType.Bearer))
 
     let installationClient (appClient : GitHubClient) installationId = task {
         let! token = appClient.GitHubApps.CreateInstallationToken(installationId)
         return GitHubClient(
-            ProductHeaderValue("Versionsof.net Checks - Installation #" + string installationId),
+            ProductHeaderValue("versionsof-net-checks-installation-" + string installationId),
             Credentials = Credentials(token.Token))
     }
