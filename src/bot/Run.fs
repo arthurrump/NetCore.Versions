@@ -60,13 +60,10 @@ module Run =
                     let filename = urlSegments.[urlSegments.Length - 2..] |> String.concat ""
                     sprintf "Error parsing %s: %s" filename (maxLines 7 mes))
 
-            let! results = 
+            let! consistencyErrors = 
                 pairs 
                 |> List.choose (fun (i, rc) -> match rc with Ok r -> Some (i, r) | Error _ -> None)
                 |> Checks.runAllChecks
-            let consistencyErrors =
-                results
-                |> List.choose Checks.sprintErrors
 
             return parseErrors, consistencyErrors
     }
@@ -77,21 +74,22 @@ module Run =
         | _ -> CheckConclusion.Failure
 
     let outputText (parseErrors, consistencyErrors) =
+        let inconsistencies = consistencyErrors |> Checks.lsprintErrors
         (if parseErrors |> List.isEmpty then "" else "# Parsing errors\n") +
-        (parseErrors |> String.concat "\n\n") + "\n\n" +
-        (if consistencyErrors |> List.isEmpty then "" else "# Consistency errors\n") +
-        (consistencyErrors |> String.concat "\n")
+        (parseErrors |> String.concat "\n\n") + 
+        (if inconsistencies |> List.isEmpty then "" else "\n\n# Consistency errors\n") +
+        (inconsistencies |> String.concat "\n")
 
     let output errors =
         let summary = 
             match errors with
             | [], [] -> None
-            | p, [] -> 
+            | p, c when c |> Checks.lerrorCount > 0 -> 
+                Some <| sprintf "%i schema errors and %i consistency errors were found." p.Length (c |> Checks.lerrorCount)
+            | p, _ -> 
                 Some <| sprintf "%i errors were found while fetching and parsing the files." p.Length
             | [], c -> 
-                Some <| sprintf "%i errors were found while checking for consistency." c.Length
-            | p, c -> 
-                Some <| sprintf "%i schema errors and %i consistency errors were found." p.Length c.Length
+                Some <| sprintf "%i errors were found while checking for consistency." (c |> Checks.lerrorCount)
 
         match summary with 
         | Some s -> NewCheckRunOutput("Releases.json Checks failed", s, Text = outputText errors)

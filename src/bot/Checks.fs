@@ -153,7 +153,23 @@ module Checks =
             yield! channel.Releases |> List.map (fun r -> run releaseChecks r) ]
         |> Async.Parallel |> Async.map Array.toList
 
-    let sprintErrors (result: CheckResult) =
+    let rec errorCount (result : CheckResult) =
+        match result with
+        | Single (_, result) ->
+            match result with
+            | Ok _ -> 0
+            | Error msg -> 
+                printfn "Error: %s" msg
+                1
+        | ResultList (_, results) ->
+            results
+            |> List.map errorCount
+            |> List.sum
+
+    let lerrorCount =
+        List.map errorCount >> List.sum
+
+    let sprintErrors (result : CheckResult) =
         let rec sprint n result =
             let indent = String.replicate n "    "
             match result with
@@ -162,12 +178,15 @@ module Checks =
                 | Ok _ -> None
                 | Error err -> 
                     match name with
-                    | Some name -> Some <| sprintf "%s* %s, but %s" indent name err
-                    | None -> Some <| indent + "* But " + err
+                    | Some name -> Some <| sprintf "%s* %s, but `%s`" indent name err
+                    | None -> Some <| sprintf "%s* But `%s`" indent err
             | ResultList (name, results) ->
                 let errors = results |> List.choose (sprint (n + 1))
                 if errors |> List.isEmpty
                 then None
                 else Some (indent + "- " + name + ":\n" + (errors |> String.concat "\n"))
         sprint 0 result
+
+    let lsprintErrors =
+        List.choose sprintErrors
         
