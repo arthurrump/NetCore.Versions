@@ -77,7 +77,9 @@ module Run =
         | _ -> CheckConclusion.Failure
 
     let outputText (parseErrors, consistencyErrors) =
-        (parseErrors |> String.concat "\n") +
+        (if parseErrors |> List.isEmpty then "" else "# Parsing errors\n") +
+        (parseErrors |> String.concat "\n\n") + "\n\n" +
+        (if consistencyErrors |> List.isEmpty then "" else "# Consistency errors\n") +
         (consistencyErrors |> String.concat "\n")
 
     let output errors =
@@ -85,11 +87,11 @@ module Run =
             match errors with
             | [], [] -> None
             | p, [] -> 
-                Some <| sprintf "%i Errors were found while fetching and parsing the files." p.Length
+                Some <| sprintf "%i errors were found while fetching and parsing the files." p.Length
             | [], c -> 
-                Some <| sprintf "%i Errors were found while checking for consistency." c.Length
+                Some <| sprintf "%i errors were found while checking for consistency." c.Length
             | p, c -> 
-                Some <| sprintf "%i Schema errors and %i consistency errors were found." p.Length c.Length
+                Some <| sprintf "%i schema errors and %i consistency errors were found." p.Length c.Length
 
         match summary with 
         | Some s -> NewCheckRunOutput("Releases.json Checks failed", s, Text = outputText errors)
@@ -123,4 +125,17 @@ module Run =
                 raise ex
 
         logger.LogInformation("Checks for {0}/{1} {2} finished. Result: {3}", owner, repo, hash, conclusion errors)
+    }
+
+    let runLocal owner repo hash = async {
+        use fetchClient = new HttpClient()
+        let! errors = getErrors fetchClient owner repo hash
+
+        printfn "Conclusion: %O" (conclusion errors)
+        match output errors with
+        | null -> ()
+        | ncro -> 
+            printfn "Title: %s" ncro.Title
+            printfn "Summary: %s" ncro.Summary
+            printfn "%s" ncro.Text
     }

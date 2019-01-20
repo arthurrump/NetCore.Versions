@@ -155,19 +155,19 @@ module Checks =
 
     let sprintErrors (result: CheckResult) =
         let rec sprint n result =
-            let indent = String.replicate n "\t"
+            let indent = String.replicate n "    "
             match result with
             | Single (name, result) ->
                 match result with
                 | Ok _ -> None
                 | Error err -> 
                     match name with
-                    | Some name -> Some <| sprintf "%s%s, but %s" indent name err
-                    | None -> Some <| indent + "But " + err
+                    | Some name -> Some <| sprintf "%s* %s, but %s" indent name err
+                    | None -> Some <| indent + "* But " + err
             | ResultList (name, results) ->
                 let errors = results |> List.choose (sprint (n + 1))
                 if errors |> List.isEmpty
                 then None
-                else Some (indent + name + ":\n" + (errors |> String.concat "\n"))
+                else Some (indent + "- " + name + ":\n" + (errors |> String.concat "\n"))
         sprint 0 result
         
