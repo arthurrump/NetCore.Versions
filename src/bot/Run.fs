@@ -6,6 +6,8 @@ open System
 open System.Net.Http
 open Thoth.Json.Net
 
+open Microsoft.Extensions.Logging
+
 open Octokit
 
 module Run =
@@ -93,12 +95,21 @@ module Run =
         | Some s -> NewCheckRunOutput("Releases.json Checks failed", s, Text = outputText errors)
         | None -> null
 
-    let runChecks (installationClient : GitHubClient) owner repo hash = async {
+    let runChecks (logger : ILogger) (installationClient : GitHubClient) owner repo hash = async {
+        logger.LogInformation("Running checks for {0}/{1} {2}", owner, repo, hash)
         let newRun = NewCheckRun("Releases.json Checks", hash, Status = Nullable(StringEnum(CheckStatus.InProgress)))
-        let! run = installationClient.Check.Run.Create(owner, repo, newRun) |> Async.AwaitTask
+        let! run = 
+            try installationClient.Check.Run.Create(owner, repo, newRun) |> Async.AwaitTask
+            with ex -> 
+                logger.LogError(ex, "An error occured while creating a new check run for {0}/{1} {2}.", owner, repo, hash)
+                raise ex
     
         use fetchClient = new HttpClient()
-        let! errors = getErrors fetchClient owner repo hash
+        let! errors = 
+            try getErrors fetchClient owner repo hash
+            with ex ->
+                logger.LogError(ex, "An error occured while checking the releases.json files for run {0}", run.Id)
+                raise ex
 
         let updatedRun = 
             CheckRunUpdate(
@@ -106,5 +117,10 @@ module Run =
                 Conclusion = Nullable(StringEnum(conclusion errors)),
                 CompletedAt = Nullable(DateTimeOffset.UtcNow),
                 Output = output errors)
-        do! installationClient.Check.Run.Update(owner, repo, run.Id, updatedRun) |> Async.AwaitTask |> Async.Ignore
+        do! try installationClient.Check.Run.Update(owner, repo, run.Id, updatedRun) |> Async.AwaitTask |> Async.Ignore
+            with ex ->
+                logger.LogError(ex, "An error occured while updating check run #{0}.", run.Id)
+                raise ex
+
+        logger.LogInformation("Checks for {0}/{1} {2} finished. Result: {3}", owner, repo, hash, conclusion errors)
     }
