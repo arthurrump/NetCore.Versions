@@ -45,12 +45,12 @@ module Run =
     let getErrors http owner repo hash = async {
         let maxLines num (text: string) =
             let lines = text.Split('\n')
-            if num >= lines.Length then text
-            else (lines.[..num - 1] |> String.concat "\n") + "\n..."
+            (lines |> Array.truncate num |> String.concat "\n  ") + 
+            if lines.Length > num then "\n  ..." else ""
 
         match! getAllFiles http owner repo hash with
         | Error mes -> 
-            return [ sprintf "Error parsing releases-index.json: %s" mes ], [ ]
+            return [ sprintf "- Error parsing releases-index.json: %s" mes ], [ ]
         | Ok pairs ->
             let parseErrors = 
                 pairs 
@@ -58,7 +58,7 @@ module Run =
                 |> List.map (fun (i, mes) -> 
                     let urlSegments = Uri(i.ReleasesJson).Segments
                     let filename = urlSegments.[urlSegments.Length - 2..] |> String.concat ""
-                    sprintf "Error parsing %s: %s" filename (maxLines 7 mes))
+                    sprintf "- Error parsing %s: %s" filename (maxLines 7 mes))
 
             let! consistencyErrors = 
                 pairs 
@@ -77,13 +77,13 @@ module Run =
         let title = "# " + title
         match errors with
         | [] -> None
-        | _ as errors -> title::errors |> String.concat "\n\n" |> Some
+        | _ as errors -> title::errors |> String.concat "\n" |> Some
 
     let outputText (parseErrors, consistencyErrors) =
         [ "Schema errors", parseErrors
           "Consistency errors", consistencyErrors |> Checks.lsprintErrors ]
         |> List.choose (fun (t, e) -> sprintErrors t e)
-        |> String.concat("\n\n")
+        |> String.concat "\n\n"
 
     let output errors =
         let title = 
