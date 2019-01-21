@@ -73,26 +73,31 @@ module Run =
         | [], [] -> CheckConclusion.Success
         | _ -> CheckConclusion.Failure
 
+    let sprintErrors title errors =
+        let title = "# " + title
+        match errors with
+        | [] -> None
+        | _ as errors -> title::errors |> String.concat "\n\n" |> Some
+
     let outputText (parseErrors, consistencyErrors) =
-        let inconsistencies = consistencyErrors |> Checks.lsprintErrors
-        (if parseErrors |> List.isEmpty then "" else "# Parsing errors\n") +
-        (parseErrors |> String.concat "\n\n") + 
-        (if inconsistencies |> List.isEmpty then "" else "\n\n# Consistency errors\n") +
-        (inconsistencies |> String.concat "\n")
+        [ "Schema errors", parseErrors
+          "Consistency errors", consistencyErrors |> Checks.lsprintErrors ]
+        |> List.choose (fun (t, e) -> sprintErrors t e)
+        |> String.concat("\n\n")
 
     let output errors =
-        let summary = 
+        let title = 
             match errors with
             | [], [] -> None
             | p, c when c |> Checks.lerrorCount > 0 -> 
-                Some <| sprintf "%i schema errors and %i consistency errors were found." p.Length (c |> Checks.lerrorCount)
+                Some <| sprintf "Failed with %i schema errors and %i consistency errors" p.Length (c |> Checks.lerrorCount)
             | p, _ -> 
-                Some <| sprintf "%i errors were found while fetching and parsing the files." p.Length
+                Some <| sprintf "Failed with %i schema errors" p.Length
             | [], c -> 
-                Some <| sprintf "%i errors were found while checking for consistency." (c |> Checks.lerrorCount)
+                Some <| sprintf "Failed with %i consistency errors" (c |> Checks.lerrorCount)
 
-        match summary with 
-        | Some s -> NewCheckRunOutput("Releases.json Checks failed", s, Text = outputText errors)
+        match title with 
+        | Some title -> NewCheckRunOutput(title, outputText errors)
         | None -> null
 
     let runChecks (logger : ILogger) (installationClient : GitHubClient) owner repo hash = async {
@@ -134,6 +139,6 @@ module Run =
         | null -> ()
         | ncro -> 
             printfn "Title: %s" ncro.Title
-            printfn "Summary: %s" ncro.Summary
+            printfn "%s" ncro.Summary
             printfn "%s" ncro.Text
     }
