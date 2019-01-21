@@ -74,7 +74,7 @@ module Run =
         | _ -> CheckConclusion.Failure
 
     let sprintErrors title errors =
-        let title = "# " + title
+        let title = "### " + title
         match errors with
         | [] -> None
         | _ as errors -> title::errors |> String.concat "\n" |> Some
