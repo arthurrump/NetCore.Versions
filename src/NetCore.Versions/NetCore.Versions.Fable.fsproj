@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- Workaround to fix build -->
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Version.fs" />
@@ -8,5 +10,9 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Thoth.Json" Version="2.5.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Fable -->
+    <Content Include="NetCore.Versions.Fable.fsproj; **\*.fs" PackagePath="fable\" />
   </ItemGroup>
 </Project>
