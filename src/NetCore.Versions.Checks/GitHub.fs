@@ -1,4 +1,4 @@
-namespace VersionsOfDotNet
+namespace NetCore.Versions.Checks
 
 open FSharp.Control.Tasks.V2.ContextInsensitive
 

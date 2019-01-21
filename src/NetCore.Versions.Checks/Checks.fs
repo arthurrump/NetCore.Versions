@@ -1,6 +1,7 @@
-namespace VersionsOfDotNet
+namespace NetCore.Versions.Checks
 
-open Data
+open NetCore.Versions
+open NetCore.Versions.Data
 
 open System
 open System.Net

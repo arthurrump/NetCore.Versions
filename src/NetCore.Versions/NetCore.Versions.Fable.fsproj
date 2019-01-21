@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Version.fs" />
+    <Compile Include="Data.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Thoth.Json" Version="2.5.0" />
+  </ItemGroup>
+</Project>

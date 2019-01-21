@@ -1,21 +1,7 @@
-# versionsof.net
+# NetCore.Versions
 
-.NET Core versioning is a mess. There are lots and lots and lots of verion numbers, from runtime to SDK, from Visual Studio to languages and of course .NET Standard. So what SDK corresponds to which runtime again? I know there some sort of a system, but it differs per release. This website uses information published in the [.NET Core repo](https://github.com/dotnet/core/blob/master/release-notes/) to give an overview of all the versions of .NET Core.
+This repo contains a data model for working with the `releases.json` files in the [dotnet/core](https://github.com/dotnet/core) repo. 
 
-## Building the website
+The `NetCore.Versions.Checks` project is a GitHub app that runs checks on pull requests to those files to make sure that they are parseable and that the data is consistent with itself.
 
-This site is built using [Fable](http://fable.io), which converts the F# code in this repo into JavaScript that runs in your browser. To get it working, you first have to get all dependencies:
-```
-npm install
-cd src/app
-dotnet restore
-```
-You can then run a webpack dev server to compile the site and see it in your browser:
-```
-dotnet fable webpack-dev-server
-```
-To compile the JavaScript bundle and put it in the folder `/public`, run
-```
-dotnet fable webpack
-```
-The public folder then contains a deployable version of the site.
+This project is a former part of [versionsof.net](https://versionsof.net) ([GitHub](https://github.com/arthurrump/versionsof.net))

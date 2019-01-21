@@ -1,7 +1,7 @@
-namespace VersionsOfDotNet
+namespace NetCore.Versions
 
 open System
-open VersionsOfDotNet // To get our Version type, instead of the one in System
+open NetCore.Versions // To get our Version type, instead of the one in System
 #if FABLE_COMPILER
 open Thoth.Json
 #else

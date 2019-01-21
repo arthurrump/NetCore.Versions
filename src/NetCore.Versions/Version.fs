@@ -1,4 +1,4 @@
-namespace VersionsOfDotNet
+namespace NetCore.Versions
 
 open System
 
