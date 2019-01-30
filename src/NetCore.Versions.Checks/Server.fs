@@ -23,9 +23,12 @@ module Server =
             let logger = ctx.GetLogger("Webhook")
             logger.LogInformation("Webhook requested")
             match! tryGetWebhookRequest webhookSecret ctx with
-            | CheckSuiteEvent (CheckSuiteAction.Requested,   event)
-            | CheckSuiteEvent (CheckSuiteAction.Rerequested, event)
-            | CheckRunEvent   (CheckRunAction  .Rerequested, event) -> 
+            | CheckSuiteEvent  (CheckSuiteAction .Requested,   event)
+            | CheckSuiteEvent  (CheckSuiteAction .Rerequested, event)
+            | CheckRunEvent    (CheckRunAction   .Rerequested, event)
+            | PullRequestEvent (PullRequestAction.Opened,      event)
+            | PullRequestEvent (PullRequestAction.Edited,      event)
+            | PullRequestEvent (PullRequestAction.Reopened,    event) ->
                 logger.LogInformation("New CheckRun requested by webhook")
                 let jwt = jwtGenerator.CreateEncodedJwtToken()
                 let appClient = GitHub.appClient jwt

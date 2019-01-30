@@ -4,6 +4,7 @@ open FSharp.Control.Tasks.V2.ContextInsensitive
 
 open Giraffe
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.Logging
 
 open System.Text
 open System.Security.Cryptography
@@ -21,9 +22,9 @@ module GitHub =
               RepoName: string
               InstallationId: int64 }
 
-            static member Decoder eventType : Decode.Decoder<Event> =
+            static member Decoder commitHash : Decode.Decoder<Event> =
                 Decode.object (fun get ->
-                    { CommitHash = get.Required.At [ eventType; "head_sha" ] Decode.string
+                    { CommitHash = get.Required.At commitHash Decode.string
                       RepoOwner = get.Required.At [ "repository"; "owner"; "login" ] Decode.string 
                       RepoName = get.Required.At [ "repository"; "name" ] Decode.string
                       InstallationId = get.Required.At [ "installation"; "id" ] Decode.int64 })
@@ -56,6 +57,23 @@ module GitHub =
                 | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
                 | Error e -> Error e
 
+        type PullRequestAction =
+            | Opened
+            | Reopened
+            | Edited
+            | Closed
+            | Other of string
+
+            static member Decoder path value =
+                let str = Decode.string path value
+                match str with
+                | Ok "opened" -> Ok Opened
+                | Ok "reopened" -> Ok Reopened
+                | Ok "edited" -> Ok Edited
+                | Ok "closed" -> Ok Closed
+                | Ok action -> Ok (Other action)
+                | Error e -> Error e
+
         let validDeliveryHeader = Option.isSome
 
         let validUserAgent = Option.exists <| fun (h : string) -> h.StartsWith "GitHub-Hookshot/"
@@ -78,37 +96,52 @@ module GitHub =
         type Request =
             | CheckSuiteEvent of CheckSuiteAction * Event
             | CheckRunEvent of CheckRunAction * Event
+            | PullRequestEvent of PullRequestAction * Event
             | Ping
             | Invalid
 
         let tryGetWebhookRequest webhookSecret (ctx : HttpContext) = task {
+            let logger = ctx.GetLogger("GitHub.tryGetWebhookRequest")
+
             let delivery = ctx.TryGetRequestHeader "X-GitHub-Delivery"
             let userAgent = ctx.TryGetRequestHeader "User-Agent"
             let signature = ctx.TryGetRequestHeader "X-Hub-Signature"
             let event = ctx.TryGetRequestHeader "X-GitHub-Event"
+            logger.LogInformation(sprintf "Event type: %A" event)
 
             if validDeliveryHeader delivery && validUserAgent userAgent then
                 let! body = ctx.ReadBodyFromRequestAsync ()
                 if validSignature webhookSecret signature body then
                     match event with
                     | Some "check_suite" ->
-                        match body |> Decode.fromString (Event.Decoder "check_suite") with
+                        match body |> Decode.fromString (Event.Decoder [ "check_suite"; "head_sha" ]) with
                         | Ok event -> 
                             match body |> Decode.fromString (Decode.field "action" CheckSuiteAction.Decoder) with
                             | Ok action -> return CheckSuiteEvent (action, event)
                             | Error _ -> return Invalid
                         | Error _ -> return Invalid
                     | Some "check_run" -> 
-                        match body |> Decode.fromString (Event.Decoder "check_run") with
+                        match body |> Decode.fromString (Event.Decoder [ "check_run"; "head_sha" ]) with
                         | Ok event -> 
                             match body |> Decode.fromString (Decode.field "action" CheckRunAction.Decoder) with
                             | Ok action -> return CheckRunEvent (action, event)
                             | Error _ -> return Invalid
                         | Error _ -> return Invalid
+                    | Some "pull_request" ->
+                        match body |> Decode.fromString (Event.Decoder [ "pull_request"; "head"; "sha" ]) with
+                        | Ok event ->
+                            match body |> Decode.fromString (Decode.field "action" PullRequestAction.Decoder) with
+                            | Ok action -> return PullRequestEvent (action, event)
+                            | Error _ -> return Invalid
+                        | Error _ -> return Invalid
                     | Some "ping" -> return Ping
                     | Some _ | None -> return Invalid
-                else return Invalid
-            else return Invalid
+                else
+                    logger.LogWarning(sprintf "Invalid signature") 
+                    return Invalid
+            else
+                logger.LogWarning(sprintf "Invalid delivery header or user-agent (%A)" userAgent) 
+                return Invalid
         }
 
     let jwtGenerator appId privateKey =
