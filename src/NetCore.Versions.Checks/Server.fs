@@ -60,7 +60,7 @@ module Server =
 
     let webApp =
         choose [ 
-            GET >=> redirectTo true "https://github.com/apps/versionsof-net-checks"
+            GET >=> redirectTo true "https://github.com/apps/netcore-versions-checks"
             POST >=> route "/hook" >=> handleWebhook
             RequestErrors.NOT_FOUND "Not found."
         ]
