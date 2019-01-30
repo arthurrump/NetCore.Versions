@@ -98,16 +98,13 @@ module GitHub =
             | CheckRunEvent of CheckRunAction * Event
             | PullRequestEvent of PullRequestAction * Event
             | Ping
-            | Invalid
+            | Invalid of reason : string
 
         let tryGetWebhookRequest webhookSecret (ctx : HttpContext) = task {
-            let logger = ctx.GetLogger("GitHub.tryGetWebhookRequest")
-
             let delivery = ctx.TryGetRequestHeader "X-GitHub-Delivery"
             let userAgent = ctx.TryGetRequestHeader "User-Agent"
             let signature = ctx.TryGetRequestHeader "X-Hub-Signature"
             let event = ctx.TryGetRequestHeader "X-GitHub-Event"
-            logger.LogInformation(sprintf "Event type: %A" event)
 
             if validDeliveryHeader delivery && validUserAgent userAgent then
                 let! body = ctx.ReadBodyFromRequestAsync ()
@@ -118,30 +115,29 @@ module GitHub =
                         | Ok event -> 
                             match body |> Decode.fromString (Decode.field "action" CheckSuiteAction.Decoder) with
                             | Ok action -> return CheckSuiteEvent (action, event)
-                            | Error _ -> return Invalid
-                        | Error _ -> return Invalid
+                            | Error msg -> return Invalid msg
+                        | Error msg -> return Invalid msg
                     | Some "check_run" -> 
                         match body |> Decode.fromString (Event.Decoder [ "check_run"; "head_sha" ]) with
                         | Ok event -> 
                             match body |> Decode.fromString (Decode.field "action" CheckRunAction.Decoder) with
                             | Ok action -> return CheckRunEvent (action, event)
-                            | Error _ -> return Invalid
-                        | Error _ -> return Invalid
+                            | Error msg -> return Invalid msg
+                        | Error msg -> return Invalid msg
                     | Some "pull_request" ->
                         match body |> Decode.fromString (Event.Decoder [ "pull_request"; "head"; "sha" ]) with
                         | Ok event ->
                             match body |> Decode.fromString (Decode.field "action" PullRequestAction.Decoder) with
                             | Ok action -> return PullRequestEvent (action, event)
-                            | Error _ -> return Invalid
-                        | Error _ -> return Invalid
+                            | Error msg -> return Invalid msg
+                        | Error msg -> return Invalid msg
                     | Some "ping" -> return Ping
-                    | Some _ | None -> return Invalid
+                    | Some ev -> return Invalid (sprintf "Event: %s" ev) 
+                    | None -> return Invalid "No event header."
                 else
-                    logger.LogWarning(sprintf "Invalid signature") 
-                    return Invalid
+                    return Invalid "Signature."
             else
-                logger.LogWarning(sprintf "Invalid delivery header or user-agent (%A)" userAgent) 
-                return Invalid
+                return Invalid (sprintf "No delivery header or invalid user-agent: %A" userAgent)
         }
 
     let jwtGenerator appId privateKey =

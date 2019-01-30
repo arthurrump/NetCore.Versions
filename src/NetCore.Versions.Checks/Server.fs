@@ -35,7 +35,7 @@ module Server =
                 let! installationClient = 
                     try GitHub.installationClient appClient event.InstallationId
                     with ex ->
-                        logger.LogError("An error occured while creating a GitHub installation client")
+                        logger.LogError(ex, "An error occured while creating a GitHub installation client")
                         raise ex
                 Run.runChecks
                     (ctx.GetLogger("Checks"))
@@ -44,13 +44,18 @@ module Server =
                     event.RepoName
                     event.CommitHash
                     |> Async.Start
-                return! Successful.NO_CONTENT next ctx
+                return! Successful.OK 
+                    (sprintf "Running checks for %s/%s %s" event.RepoOwner event.RepoName, event.CommitHash) 
+                    next ctx
+            | CheckSuiteEvent _ | CheckRunEvent _ | PullRequestEvent _ ->
+                logger.LogInformation("Valid request, no action required.")
+                return! Successful.OK "Valid request, no action required." next ctx
             | Ping ->
                 logger.LogInformation("Ping Webhook request")
-                return! Successful.OK "ping" next ctx
-            | Invalid | _ ->
-                logger.LogInformation("Invalid Webhook request")
-                return! RequestErrors.BAD_REQUEST "Invalid request." next ctx
+                return! Successful.OK "Ping" next ctx
+            | Invalid msg ->
+                logger.LogInformation("Invalid Webhook request: {0}", msg)
+                return! RequestErrors.BAD_REQUEST msg next ctx
         }
 
     let webApp =
@@ -61,7 +66,7 @@ module Server =
         ]
 
     let errorHandler (ex : Exception) (logger : ILogger) =
-        logger.LogError(EventId(), ex, "An unhandled exception occurred.")
+        logger.LogError(ex, "An unhandled exception occurred.")
         clearResponse
         >=> ServerErrors.INTERNAL_ERROR "An unhandled exception occured."
 
