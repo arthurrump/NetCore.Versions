@@ -28,7 +28,8 @@ module Server =
             | CheckRunEvent    (CheckRunAction   .Rerequested, event)
             | PullRequestEvent (PullRequestAction.Opened,      event)
             | PullRequestEvent (PullRequestAction.Edited,      event)
-            | PullRequestEvent (PullRequestAction.Reopened,    event) ->
+            | PullRequestEvent (PullRequestAction.Reopened,    event)
+            | PullRequestEvent (PullRequestAction.Synchronize, event) ->
                 logger.LogInformation("New CheckRun requested by webhook")
                 let jwt = jwtGenerator.CreateEncodedJwtToken()
                 let appClient = GitHub.appClient jwt

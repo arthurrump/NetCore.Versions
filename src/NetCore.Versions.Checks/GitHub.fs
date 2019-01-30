@@ -62,6 +62,7 @@ module GitHub =
             | Reopened
             | Edited
             | Closed
+            | Synchronize
             | Other of string
 
             static member Decoder path value =
@@ -71,6 +72,7 @@ module GitHub =
                 | Ok "reopened" -> Ok Reopened
                 | Ok "edited" -> Ok Edited
                 | Ok "closed" -> Ok Closed
+                | Ok "synchronize" -> Ok Synchronize
                 | Ok action -> Ok (Other action)
                 | Error e -> Error e
 
