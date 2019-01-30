@@ -1,6 +1,7 @@
 public/
 
 .vscode/
+Properties/
 
 # Node
 node_modules/
