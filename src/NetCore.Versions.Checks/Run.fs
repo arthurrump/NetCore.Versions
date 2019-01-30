@@ -42,7 +42,7 @@ module Run =
         else return Error (sprintf "Couldn't load %s: %O" (indexUrl owner repo hash) resp.StatusCode)
     }
 
-    let getErrors http owner repo hash = async {
+    let getResults http owner repo hash = async {
         let maxLines num (text: string) =
             let lines = text.Split('\n')
             (lines |> Array.truncate num |> String.concat "\n  ") + 
@@ -68,9 +68,9 @@ module Run =
             return parseErrors, consistencyErrors
     }
 
-    let conclusion errors =
-        match errors with
-        | [], [] -> CheckConclusion.Success
+    let conclusion results =
+        match fst results, snd results |> Checks.lerrorCount with
+        | [], 0 -> CheckConclusion.Success
         | _ -> CheckConclusion.Failure
 
     let sprintErrors title errors =
@@ -79,25 +79,25 @@ module Run =
         | [] -> None
         | _ as errors -> title::errors |> String.concat "\n" |> Some
 
-    let outputText (parseErrors, consistencyErrors) =
+    let outputText (parseErrors, consistencyResults) =
         [ "Schema errors", parseErrors
-          "Consistency errors", consistencyErrors |> Checks.lsprintErrors ]
+          "Consistency errors", consistencyResults |> Checks.lsprintErrors ]
         |> List.choose (fun (t, e) -> sprintErrors t e)
         |> String.concat "\n\n"
 
-    let output errors =
+    let output results =
         let title = 
-            match errors with
-            | [], [] -> None
-            | p, c when c |> Checks.lerrorCount > 0 -> 
-                Some <| sprintf "Failed with %i schema errors and %i consistency errors" p.Length (c |> Checks.lerrorCount)
-            | p, _ -> 
-                Some <| sprintf "Failed with %i schema errors" p.Length
-            | [], c -> 
-                Some <| sprintf "Failed with %i consistency errors" (c |> Checks.lerrorCount)
+            match fst results |> List.length, snd results |> Checks.lerrorCount with
+            | 0, 0 -> None
+            | s, 0 -> 
+                Some <| sprintf "Failed with %i schema errors" s
+            | 0, c -> 
+                Some <| sprintf "Failed with %i consistency errors" c
+            | s, c -> 
+                Some <| sprintf "Failed with %i schema errors and %i consistency errors" s c
 
         match title with 
-        | Some title -> NewCheckRunOutput(title, outputText errors)
+        | Some title -> NewCheckRunOutput(title, outputText results)
         | None -> null
 
     let runChecks (logger : ILogger) (installationClient : GitHubClient) owner repo hash = async {
@@ -110,8 +110,8 @@ module Run =
                 raise ex
     
         use fetchClient = new HttpClient()
-        let! errors = 
-            try getErrors fetchClient owner repo hash
+        let! results = 
+            try getResults fetchClient owner repo hash
             with ex ->
                 logger.LogError(ex, "An error occured while checking the releases.json files for run {0}", run.Id)
                 raise ex
@@ -119,23 +119,23 @@ module Run =
         let updatedRun = 
             CheckRunUpdate(
                 Status = Nullable(StringEnum(CheckStatus.Completed)),
-                Conclusion = Nullable(StringEnum(conclusion errors)),
+                Conclusion = Nullable(StringEnum(conclusion results)),
                 CompletedAt = Nullable(DateTimeOffset.UtcNow),
-                Output = output errors)
+                Output = output results)
         do! try installationClient.Check.Run.Update(owner, repo, run.Id, updatedRun) |> Async.AwaitTask |> Async.Ignore
             with ex ->
                 logger.LogError(ex, "An error occured while updating check run #{0}.", run.Id)
                 raise ex
 
-        logger.LogInformation("Checks for {0}/{1} {2} finished. Result: {3}", owner, repo, hash, conclusion errors)
+        logger.LogInformation("Checks for {0}/{1} {2} finished. Result: {3}", owner, repo, hash, conclusion results)
     }
 
     let runLocal owner repo hash = async {
         use fetchClient = new HttpClient()
-        let! errors = getErrors fetchClient owner repo hash
+        let! results = getResults fetchClient owner repo hash
 
-        printfn "Conclusion: %O" (conclusion errors)
-        match output errors with
+        printfn "Conclusion: %O" (conclusion results)
+        match output results with
         | null -> ()
         | ncro -> 
             printfn "Title: %s" ncro.Title
