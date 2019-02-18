@@ -30,5 +30,5 @@ On a single release:
 - Request to release notes link should give status code 200 OK
 - File urls should be well formed absolute uris
 
-The implementation of these checks can be found in [Checks.fs](/Checks.fs). Please open an issue if you have a suggestion for another check.
+The implementation of these checks can be found in [Checks.fs](/src/NetCore.Versions.Checks/Checks.fs). Please open an issue if you have a suggestion for another check.
 
