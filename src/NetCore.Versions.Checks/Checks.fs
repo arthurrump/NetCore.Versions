@@ -114,7 +114,12 @@ module Checks =
                     (r.Sdk.Files |> List.map wellFormedUri) @
                     (match r.Runtime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
                     (match r.AspnetcoreRuntime with Some rt -> rt.Files |> List.map wellFormedUri | None -> []) @
-                    (match r.Symbols with Some s -> s.Files |> List.map wellFormedUri | None -> []) ]
+                    (match r.Symbols with Some s -> s.Files |> List.map wellFormedUri | None -> [])
+              check "Only releases with `\"security\": true` should have CVEs listed" <|
+                fun r ->
+                    match r.CveList with
+                    | [] -> <@ true @>
+                    | _ -> <@ r.Security = true @> ]
 
     let private doCheck quotation =
         try 
