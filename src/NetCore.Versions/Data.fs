@@ -21,9 +21,9 @@ module Data =
                          | Result.Error v -> Result.Error v)
 
     let private getOptionalDate (get: Decode.IGetters) jsonName =
-        get.Required.Field jsonName Decode.string
-        |> fun s -> if String.IsNullOrWhiteSpace s then (false, DateTime()) else DateTime.TryParse(s)
-        |> fun (s, d) -> if s then Some d else None
+        get.Optional.Field jsonName Decode.string
+        |> Option.map (fun s -> if String.IsNullOrWhiteSpace s then (false, DateTime()) else DateTime.TryParse(s))
+        |> Option.bind (fun (s, d) -> if s then Some d else None)
 
     type Url = string
     type DisplayVersion = string
