@@ -84,7 +84,7 @@ module Data =
         { ReleaseDate: DateTime
           ReleaseVersion: Version
           Security: bool
-          CveList: CveEntry list option
+          CveList: CveEntry list
           ReleaseNotes: Url option
           Runtime: Runtime option
           Sdk: Sdk
@@ -97,7 +97,7 @@ module Data =
                     { ReleaseDate = get.Required.Field "release-date" Decode.datetime
                       ReleaseVersion = get.Required.Field "release-version" Decode.version
                       Security = get.Required.Field "security" Decode.bool
-                      CveList = get.Optional.Field "cve-list" (Decode.list CveEntry.Decoder)
+                      CveList = get.Optional.Field "cve-list" (Decode.list CveEntry.Decoder) |> Option.defaultValue []
                       ReleaseNotes = get.Optional.Field "release-notes" Decode.string
                       Runtime = get.Optional.Field "runtime" Runtime.Decoder
                       Sdk = get.Required.Field "sdk" Sdk.Decoder
