@@ -12,13 +12,12 @@ module Data =
     // Helpers
     module private Decode =
         let version path value =
-            Decode.string path value
-            |> (fun r -> match r with
-                         | Ok s ->
-                             match Version.parse s with
-                             | Some v -> Ok v
-                             | None -> (path, Decode.BadPrimitive("a version", value)) |> Result.Error
-                         | Result.Error v -> Result.Error v)
+            match Decode.string path value with
+            | Ok s ->
+                match Version.parse s with
+                | Some v -> Ok v
+                | None -> (path, Decode.BadPrimitive("a version", value)) |> Result.Error
+            | Result.Error v -> Result.Error v
 
     type Url = string
     type DisplayVersion = string
