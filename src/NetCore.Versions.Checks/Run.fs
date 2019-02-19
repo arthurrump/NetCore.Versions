@@ -17,29 +17,31 @@ module Run =
                     sprintf "https://github.com/%s/%s/raw/%s/release-notes" owner repo hash)
            .Replace("/dotnet/core/blob/master/", sprintf "/%s/%s/raw/%s/" owner repo hash)
 
-    let getReleasesJson (http : HttpClient) owner repo hash releasesJson = async {
-        let url = releasesUrl releasesJson owner repo hash
-        let! channelResp = url |> http.GetAsync |> Async.AwaitTask
-        if channelResp.IsSuccessStatusCode then
-            let! channelJson = channelResp.Content.ReadAsStringAsync() |> Async.AwaitTask
-            return Decode.fromString Channel.Decoder channelJson 
-        else return Error (sprintf "Couldn't load %s: %O" url channelResp.StatusCode)
+    let indexDecoder = Decode.field "releases-index" (Decode.list IndexEntry.Decoder)
+
+    let tryGet (http : HttpClient) (url : string) = async {
+        let! resp = url |> http.GetAsync |> Async.AwaitTask
+        if resp.IsSuccessStatusCode then
+            let! body = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
+            return Ok body
+        else return Error (sprintf "Couldn't load %s: %O" url resp.StatusCode)
     }
 
-    let getAllFiles (http : HttpClient) owner repo hash = async {
-        let! resp = indexUrl owner repo hash |> http.GetAsync |> Async.AwaitTask
-        if resp.IsSuccessStatusCode then
-            let! indexJson = resp.Content.ReadAsStringAsync() |> Async.AwaitTask
-            let decoder = Decode.object (fun get -> get.Required.Field "releases-index" (Decode.list IndexEntry.Decoder))
-            match Decode.fromString decoder indexJson with
-            | Error ex -> return Error ex
-            | Ok indexes -> 
-                let! pairs =
-                    indexes
-                    |> List.map (fun i -> getReleasesJson http owner repo hash i.ReleasesJson |> Async.map (fun r -> i, r))
-                    |> Async.Parallel
-                return Ok (pairs |> Array.toList)
-        else return Error (sprintf "Couldn't load %s: %O" (indexUrl owner repo hash) resp.StatusCode)
+    let getReleasesJson tryGet owner repo hash releasesJson = async {
+        let! resp = tryGet (releasesUrl releasesJson owner repo hash)
+        return resp |> Result.bind (fun json -> Decode.fromString Channel.Decoder json)
+    }
+
+    let getAllFiles tryGet owner repo hash = async {
+        let! resp = tryGet (indexUrl owner repo hash)
+        let! pairs =
+            resp
+            |> Result.bind (Decode.fromString indexDecoder)
+            |> Result.map 
+                (List.map (fun i -> getReleasesJson tryGet owner repo hash i.ReleasesJson |> Async.map (fun r -> i, r))
+                 >> Async.Parallel)
+            |> unwrapAsyncResult
+        return pairs |> Result.map Array.toList
     }
 
     let getResults http owner repo hash = async {
@@ -110,8 +112,10 @@ module Run =
                 raise ex
     
         use fetchClient = new HttpClient()
+        let tryGet = tryGet fetchClient
+
         let! results = 
-            try getResults fetchClient owner repo hash
+            try getResults tryGet owner repo hash
             with ex ->
                 logger.LogError(ex, "An error occured while checking the releases.json files for run {0}", run.Id)
                 raise ex
@@ -122,7 +126,7 @@ module Run =
                 Conclusion = Nullable(StringEnum(conclusion results)),
                 CompletedAt = Nullable(DateTimeOffset.UtcNow),
                 Output = output results)
-        do! try installationClient.Check.Run.Update(owner, repo, run.Id, updatedRun) |> Async.AwaitTask |> Async.Ignore
+        do! try installationClient.Check.Run.Update(owner, repo, run.Id, updatedRun) |> Task.Ignore
             with ex ->
                 logger.LogError(ex, "An error occured while updating check run #{0}.", run.Id)
                 raise ex
@@ -132,7 +136,9 @@ module Run =
 
     let runLocal owner repo hash = async {
         use fetchClient = new HttpClient()
-        let! results = getResults fetchClient owner repo hash
+        let tryGet = tryGet fetchClient
+
+        let! results = getResults tryGet owner repo hash
 
         printfn "Conclusion: %O" (conclusion results)
         match output results with
