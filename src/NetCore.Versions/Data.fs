@@ -2,11 +2,7 @@ namespace NetCore.Versions
 
 open System
 open NetCore.Versions // To get our Version type, instead of the one in System
-#if FABLE_COMPILER
-open Thoth.Json
-#else
 open Thoth.Json.Net
-#endif
 
 module Data =
     // Helpers
