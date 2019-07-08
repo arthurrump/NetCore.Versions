@@ -3,9 +3,17 @@ namespace NetCore.Versions
 open System
 open NetCore.Versions // To get our Version type, instead of the one in System
 open Thoth.Json.Net
+open Newtonsoft.Json.Linq
 
 module Data =
     // Helpers
+    module private Result =
+        let rec allOk = 
+            function
+            | [] -> Ok []
+            | Error x::_ -> Error x
+            | Ok x::rest -> Result.map (fun r -> x::r) (allOk rest)
+
     module private Decode =
         let version path value =
             match Decode.string path value with
@@ -13,7 +21,16 @@ module Data =
                 match Version.parse s with
                 | Some v -> Ok v
                 | None -> (path, BadPrimitive("a version", value)) |> Result.Error
-            | Result.Error v -> Result.Error v
+            | Error v -> Error v
+
+        let separatedString (sep : char) decoder path value =
+            match Decode.string path value with
+            | Ok str ->
+                str.Split(sep) 
+                |> Array.toList
+                |> List.map (fun s -> decoder path (JValue(s) :> JToken))
+                |> Result.allOk
+            | Error v -> Error v
 
     type Url = string
     type DisplayVersion = string
@@ -78,6 +95,7 @@ module Data =
           ReleaseNotes: Url option
           Runtime: Runtime option
           Sdk: Sdk
+          Sdks: Sdk list
           AspnetcoreRuntime: AspnetcoreRuntime option
           Symbols: Symbols option }
 
@@ -91,6 +109,7 @@ module Data =
                       ReleaseNotes = get.Optional.Field "release-notes" Decode.string
                       Runtime = get.Optional.Field "runtime" Runtime.Decoder
                       Sdk = get.Required.Field "sdk" Sdk.Decoder
+                      Sdks = get.Optional.Field "sdks" (Decode.list Sdk.Decoder) |> Option.defaultValue []
                       AspnetcoreRuntime = get.Optional.Field "aspnetcore-runtime" AspnetcoreRuntime.Decoder
                       Symbols = get.Optional.Field "symbols" Symbols.Decoder })
 
@@ -107,7 +126,7 @@ module Data =
     and Runtime =
         { Version: Version
           VersionDisplay: DisplayVersion option
-          VsVersion: DisplayVersion option
+          VsVersion: Version list
           Files: File list }
 
         static member Decoder : Decoder<Runtime> =
@@ -115,17 +134,19 @@ module Data =
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
-                      VsVersion = get.Optional.Field "vs-version" Decode.string
+                      VsVersion = get.Optional.Field "vs-version" (Decode.separatedString ',' Decode.version) 
+                                  |> Option.defaultValue []
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and Sdk = 
         { Version: Version
           VersionDisplay: DisplayVersion option
           RuntimeVersion: Version option
-          VsVersion: DisplayVersion option
-          CsharpVersion: DisplayVersion option
-          FsharpVersion: DisplayVersion option
-          VbVersion: DisplayVersion option
+          VsVersion: Version option
+          VsSupport: string option
+          CsharpVersion: Version option
+          FsharpVersion: Version option
+          VbVersion: Version option
           Files: File list }
 
         static member Decoder : Decoder<Sdk> =
@@ -134,16 +155,18 @@ module Data =
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
-                      VsVersion = get.Optional.Field "vs-version" Decode.string
-                      CsharpVersion = get.Optional.Field "csharp-version" Decode.string
-                      FsharpVersion = get.Optional.Field "fsharp-version" Decode.string
-                      VbVersion = get.Optional.Field "vb-version" Decode.string
+                      VsVersion = get.Optional.Field "vs-version" Decode.version
+                      VsSupport = get.Optional.Field "vs-support" Decode.string
+                      CsharpVersion = get.Optional.Field "csharp-version" Decode.version
+                      FsharpVersion = get.Optional.Field "fsharp-version" Decode.version
+                      VbVersion = get.Optional.Field "vb-version" Decode.version
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and AspnetcoreRuntime =
         { Version: Version
           VersionDisplay: DisplayVersion option
-          VersionAspnetcoremodule: Version list option
+          VersionAspnetcoremodule: Version list
+          VsVersion: Version list
           Files: File list }
 
         static member Decoder : Decoder<AspnetcoreRuntime> =
@@ -152,7 +175,10 @@ module Data =
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       VersionAspnetcoremodule = 
-                        get.Optional.Field "version-aspnetcoremodule" (Decode.list Decode.version)
+                        get.Optional.Field "version-aspnetcoremodule" (Decode.list Decode.version) 
+                        |> Option.defaultValue []
+                      VsVersion = get.Optional.Field "vs-version" (Decode.separatedString ',' Decode.version)
+                                  |> Option.defaultValue []
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and Symbols =
