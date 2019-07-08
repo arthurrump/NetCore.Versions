@@ -18,7 +18,6 @@
     <PackageReference Include="Giraffe" Version="3.5.1" />
     <PackageReference Include="octokit" Version="0.32.0" />
     <PackageReference Include="githubjwt" Version="0.0.3" />
-    <PackageReference Include="Thoth.Json.Net" Version="2.5.0" />
     <PackageReference Include="unquote" Version="4.0.0" />
   </ItemGroup>
   <ItemGroup>

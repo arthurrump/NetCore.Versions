@@ -12,7 +12,7 @@ module Data =
             | Ok s ->
                 match Version.parse s with
                 | Some v -> Ok v
-                | None -> (path, Decode.BadPrimitive("a version", value)) |> Result.Error
+                | None -> (path, BadPrimitive("a version", value)) |> Result.Error
             | Result.Error v -> Result.Error v
 
     type Url = string
@@ -31,7 +31,7 @@ module Data =
           EolDate: DateTime option
           ReleasesJson: Url }
 
-        static member Decoder : Decode.Decoder<IndexEntry> = 
+        static member Decoder : Decoder<IndexEntry> = 
             Decode.object
                 (fun get -> 
                     { ChannelVersion = get.Required.Field "channel-version" Decode.version
@@ -57,7 +57,7 @@ module Data =
           LifecyclePolicy: Url
           Releases: Release list }
 
-        static member Decoder : Decode.Decoder<Channel> =
+        static member Decoder : Decoder<Channel> =
             Decode.object
                 (fun get ->
                     { ChannelVersion = get.Required.Field "channel-version" Decode.version
@@ -81,7 +81,7 @@ module Data =
           AspnetcoreRuntime: AspnetcoreRuntime option
           Symbols: Symbols option }
 
-        static member Decoder : Decode.Decoder<Release> =
+        static member Decoder : Decoder<Release> =
             Decode.object
                 (fun get -> 
                     { ReleaseDate = get.Required.Field "release-date" Decode.datetime
@@ -98,7 +98,7 @@ module Data =
         { CveId: string
           CveUrl: Url }
 
-        static member Decoder : Decode.Decoder<CveEntry> =
+        static member Decoder : Decoder<CveEntry> =
             Decode.object
                 (fun get ->
                     { CveId = get.Required.Field "cve-id" Decode.string
@@ -110,7 +110,7 @@ module Data =
           VsVersion: DisplayVersion option
           Files: File list }
 
-        static member Decoder : Decode.Decoder<Runtime> =
+        static member Decoder : Decoder<Runtime> =
             Decode.object
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
@@ -128,7 +128,7 @@ module Data =
           VbVersion: DisplayVersion option
           Files: File list }
 
-        static member Decoder : Decode.Decoder<Sdk> =
+        static member Decoder : Decoder<Sdk> =
             Decode.object
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
@@ -146,7 +146,7 @@ module Data =
           VersionAspnetcoremodule: Version list option
           Files: File list }
 
-        static member Decoder : Decode.Decoder<AspnetcoreRuntime> =
+        static member Decoder : Decoder<AspnetcoreRuntime> =
             Decode.object
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
@@ -159,7 +159,7 @@ module Data =
         { Version: Version
           Files: File list }
 
-        static member Decoder : Decode.Decoder<Symbols> =
+        static member Decoder : Decoder<Symbols> =
             Decode.object
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
@@ -171,7 +171,7 @@ module Data =
           Url: Url
           Hash: string }
 
-        static member Decoder : Decode.Decoder<File> =
+        static member Decoder : Decoder<File> =
             Decode.object
                 (fun get ->
                     { Name = get.Required.Field "name" Decode.string

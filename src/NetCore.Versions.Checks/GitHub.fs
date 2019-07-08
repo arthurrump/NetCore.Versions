@@ -22,7 +22,7 @@ module GitHub =
               RepoName: string
               InstallationId: int64 }
 
-            static member Decoder commitHash : Decode.Decoder<Event> =
+            static member Decoder commitHash : Decoder<Event> =
                 Decode.object (fun get ->
                     { CommitHash = get.Required.At commitHash Decode.string
                       RepoOwner = get.Required.At [ "repository"; "owner"; "login" ] Decode.string 
@@ -40,7 +40,7 @@ module GitHub =
                 | Ok "completed" -> Ok Completed
                 | Ok "requested" -> Ok Requested
                 | Ok "rerequested" -> Ok Rerequested
-                | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
+                | Ok _ -> (path, BadPrimitive("a valid action", value)) |> Error
                 | Error e -> Error e
 
         type CheckRunAction =
@@ -54,7 +54,7 @@ module GitHub =
                 | Ok "created" -> Ok Created
                 | Ok "rerequested" -> Ok Rerequested
                 | Ok "requested_action" -> Ok RequestedAction
-                | Ok _ -> (path, Decode.BadPrimitive("a valid action", value)) |> Error
+                | Ok _ -> (path, BadPrimitive("a valid action", value)) |> Error
                 | Error e -> Error e
 
         type PullRequestAction =
