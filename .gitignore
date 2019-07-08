@@ -1,6 +1,7 @@
 public/
 
 .vscode/
+.ionide/
 Properties/
 
 # Node
