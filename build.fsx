@@ -16,7 +16,10 @@ open Fake.Tools
 let (</>) = Path.combine
 
 let [<Literal>] solution = "NetCore.Versions.sln"
+let checksProj = "src" </> "NetCore.Versions.Checks" </> "NetCore.Versions.Checks.fsproj"
+
 let packagesLocation = __SOURCE_DIRECTORY__ </> "packages"
+let publishLocation = __SOURCE_DIRECTORY__ </> "publish"
 let [<Literal>] repo = "."
 let [<Literal>] versionFile = "version"
 let [<Literal>] versionPreFile = "version-pre"
@@ -130,6 +133,21 @@ Target.create "Pack" <| fun _ ->
 
 "Version" ==> "Build" ==> "Pack"
 
+Target.create "Publish" <| fun _ ->
+    let version = Version.version.Value
+    checksProj |> DotNet.publish (fun o ->
+        { o with
+            MSBuildParams = o.MSBuildParams |> withDefaults version
+            NoBuild = true
+            OutputPath = Some publishLocation })
+
+"Version" ==> "Build" ==> "Publish"
+
+Target.create "PackPub" ignore
+
+"Pack" ==> "PackPub"
+"Publish" ==> "PackPub"
+
 let tag version = sprintf "v%O" version
 
 Target.create "Tag" <| fun _ ->
@@ -157,4 +175,4 @@ Target.create "PushTag" <| fun param ->
 "Version" ==> "PushTag"
 "Tag" ?=> "Version"
 
-Target.runOrDefaultWithArguments "Pack"
+Target.runOrDefaultWithArguments "PackPub"
