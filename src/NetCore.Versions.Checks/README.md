@@ -30,6 +30,7 @@ On a single release:
 - Request to release notes link should give status code 200 OK
 - File urls should be well formed absolute uris
 - Only releases with `"security": true` should have CVEs listed
+- sdk should be equal to the highest versioned SDK in sdks
 
 The implementation of these checks can be found in [Checks.fs](/src/NetCore.Versions.Checks/Checks.fs). Please open an issue if you have a suggestion for another check.
 

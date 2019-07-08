@@ -119,7 +119,12 @@ module Checks =
                 fun r ->
                     match r.CveList with
                     | [] -> <@ true @>
-                    | _ -> <@ r.Security = true @> ]
+                    | _ -> <@ r.Security = true @>
+              check "sdk should be equal to the highest versioned SDK in sdks" <|
+                fun r ->
+                    match r.Sdks with
+                    | [] -> <@ true @>
+                    | _ -> <@ r.Sdk = (r.Sdks |> List.maxBy (fun s -> s.Version)) @> ]
 
     let private doCheck quotation =
         try 
