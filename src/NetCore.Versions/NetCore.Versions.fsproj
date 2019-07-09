@@ -2,6 +2,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Label="PackageInfo">
+    <Authors>Arthur Rump</Authors>
+    <Copyright>Copyright (c) 2019, Arthur Rump</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/arthurrump/NetCore.Versions</PackageProjectUrl>
+    <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
+    <Description>This package contains models and deserializers for working with .NET Core release data, as provided in the releases.json files in the dotnet/core repository.</Description>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="Version.fs" />
     <Compile Include="Data.fs" />
