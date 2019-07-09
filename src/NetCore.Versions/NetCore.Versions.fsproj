@@ -4,6 +4,7 @@
   </PropertyGroup>
   <PropertyGroup Label="PackageInfo">
     <Authors>Arthur Rump</Authors>
+    <PackageId>NetCoreVersions</PackageId>
     <Copyright>Copyright (c) 2019, Arthur Rump</Copyright>
     <RepositoryType>git</RepositoryType>
     <PackageProjectUrl>https://github.com/arthurrump/NetCore.Versions</PackageProjectUrl>
