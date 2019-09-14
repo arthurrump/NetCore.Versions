@@ -14,7 +14,7 @@ module Data =
             | Error x::_ -> Error x
             | Ok x::rest -> Result.map (fun r -> x::r) (allOk rest)
 
-    module private Decode =
+    module Decode =
         let version path value =
             match Decode.string path value with
             | Ok s ->
@@ -30,6 +30,12 @@ module Data =
                 |> Array.toList
                 |> List.map (fun s -> decoder path (JValue(s) :> JToken))
                 |> Result.allOk
+            | Error v -> Error v
+
+        let emptyStringAsNone decoder path value =
+            match Decode.string path value with
+            | Ok "" -> Ok None
+            | Ok _ -> decoder path value |> Result.map Some
             | Error v -> Error v
 
     type Url = string
@@ -134,7 +140,8 @@ module Data =
                 (fun get ->
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
-                      VsVersion = get.Optional.Field "vs-version" (Decode.separatedString ',' Decode.version) 
+                      VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
+                                  |> Option.bind id
                                   |> Option.defaultValue []
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
@@ -155,7 +162,7 @@ module Data =
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
-                      VsVersion = get.Optional.Field "vs-version" Decode.version
+                      VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       VsSupport = get.Optional.Field "vs-support" Decode.string
                       CsharpVersion = get.Optional.Field "csharp-version" Decode.version
                       FsharpVersion = get.Optional.Field "fsharp-version" Decode.version
@@ -177,7 +184,8 @@ module Data =
                       VersionAspnetcoremodule = 
                         get.Optional.Field "version-aspnetcoremodule" (Decode.list Decode.version) 
                         |> Option.defaultValue []
-                      VsVersion = get.Optional.Field "vs-version" (Decode.separatedString ',' Decode.version)
+                      VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
+                                  |> Option.bind id
                                   |> Option.defaultValue []
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
