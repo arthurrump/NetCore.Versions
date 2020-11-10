@@ -133,6 +133,7 @@ module Data =
         { Version: Version
           VersionDisplay: DisplayVersion option
           VsVersion: Version list
+          VsMacVersion: Version list
           Files: File list }
 
         static member Decoder : Decoder<Runtime> =
@@ -143,6 +144,9 @@ module Data =
                       VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
                                   |> Option.bind id
                                   |> Option.defaultValue []
+                      VsMacVersion = get.Optional.Field "vs-mac-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
+                                     |> Option.bind id
+                                     |> Option.defaultValue []
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and Sdk = 
@@ -150,7 +154,9 @@ module Data =
           VersionDisplay: DisplayVersion option
           RuntimeVersion: Version option
           VsVersion: Version option
+          VsMacVersion: Version option
           VsSupport: string option
+          VsMacSupport: string option
           CsharpVersion: Version option
           FsharpVersion: Version option
           VbVersion: Version option
@@ -163,7 +169,9 @@ module Data =
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
                       VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
+                      VsMacVersion = get.Optional.Field "vs-mac-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       VsSupport = get.Optional.Field "vs-support" Decode.string
+                      VsMacSupport = get.Optional.Field "vs-mac-support" Decode.string
                       CsharpVersion = get.Optional.Field "csharp-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       FsharpVersion = get.Optional.Field "fsharp-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       VbVersion = get.Optional.Field "vb-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
