@@ -164,9 +164,9 @@ module Data =
                       RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
                       VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       VsSupport = get.Optional.Field "vs-support" Decode.string
-                      CsharpVersion = get.Optional.Field "csharp-version" Decode.version
-                      FsharpVersion = get.Optional.Field "fsharp-version" Decode.version
-                      VbVersion = get.Optional.Field "vb-version" Decode.version
+                      CsharpVersion = get.Optional.Field "csharp-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
+                      FsharpVersion = get.Optional.Field "fsharp-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
+                      VbVersion = get.Optional.Field "vb-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and AspnetcoreRuntime =
