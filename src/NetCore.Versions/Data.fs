@@ -103,6 +103,7 @@ module Data =
           Sdk: Sdk
           Sdks: Sdk list
           AspnetcoreRuntime: AspnetcoreRuntime option
+          WindowsDesktop: WindowsDesktop option
           Symbols: Symbols option }
 
         static member Decoder : Decoder<Release> =
@@ -117,6 +118,7 @@ module Data =
                       Sdk = get.Required.Field "sdk" Sdk.Decoder
                       Sdks = get.Optional.Field "sdks" (Decode.list Sdk.Decoder) |> Option.defaultValue []
                       AspnetcoreRuntime = get.Optional.Field "aspnetcore-runtime" AspnetcoreRuntime.Decoder
+                      WindowsDesktop = get.Optional.Field "windowsdesktop" WindowsDesktop.Decoder
                       Symbols = get.Optional.Field "symbols" Symbols.Decoder })
 
     and CveEntry =
@@ -195,6 +197,18 @@ module Data =
                       VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
                                   |> Option.bind id
                                   |> Option.defaultValue []
+                      Files = get.Required.Field "files" (Decode.list File.Decoder) })
+
+    and WindowsDesktop =
+        { Version: Version
+          VersionDisplay: DisplayVersion option
+          Files: File list }
+
+        static member Decoder : Decoder<WindowsDesktop> =
+            Decode.object
+                (fun get ->
+                    { Version = get.Required.Field "version" Decode.version
+                      VersionDisplay = get.Optional.Field "version-display" Decode.string
                       Files = get.Required.Field "files" (Decode.list File.Decoder) })
 
     and Symbols =
