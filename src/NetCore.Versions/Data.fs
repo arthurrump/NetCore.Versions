@@ -155,7 +155,7 @@ module Data =
         { Version: Version
           VersionDisplay: DisplayVersion option
           RuntimeVersion: Version option
-          VsVersion: Version option
+          VsVersion: Version list
           VsMacVersion: Version option
           VsSupport: string option
           VsMacSupport: string option
@@ -170,7 +170,9 @@ module Data =
                     { Version = get.Required.Field "version" Decode.version
                       VersionDisplay = get.Optional.Field "version-display" Decode.string
                       RuntimeVersion = get.Optional.Field "runtime-version" Decode.version
-                      VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
+                      VsVersion = get.Optional.Field "vs-version" (Decode.emptyStringAsNone (Decode.separatedString ',' Decode.version))
+                                  |> Option.bind id
+                                  |> Option.defaultValue []
                       VsMacVersion = get.Optional.Field "vs-mac-version" (Decode.emptyStringAsNone Decode.version) |> Option.bind id
                       VsSupport = get.Optional.Field "vs-support" Decode.string
                       VsMacSupport = get.Optional.Field "vs-mac-support" Decode.string
