@@ -26,7 +26,7 @@ module Data =
         let separatedString (sep : char) decoder path value =
             match Decode.string path value with
             | Ok str ->
-                str.Split(sep) 
+                str.Split([| sep |], StringSplitOptions.RemoveEmptyEntries) 
                 |> Array.toList
                 |> List.map (fun s -> decoder path (JValue(s) :> JToken))
                 |> Result.allOk
