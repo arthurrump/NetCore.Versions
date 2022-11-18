@@ -50,6 +50,7 @@ module Data =
           LatestRuntime: Version
           LatestSdk: Version
           Product: string
+          ReleaseType: string
           SupportPhase: string
           EolDate: DateTime option
           ReleasesJson: Url }
@@ -64,6 +65,7 @@ module Data =
                       LatestRuntime = get.Required.Field "latest-runtime" Decode.version
                       LatestSdk = get.Required.Field "latest-sdk" Decode.version
                       Product = get.Required.Field "product" Decode.string
+                      ReleaseType = get.Required.Field "release-type" Decode.string
                       SupportPhase = get.Required.Field "support-phase" Decode.string
                       EolDate = get.Optional.Field "eol-date" Decode.datetime
                       ReleasesJson = get.Required.Field "releases.json" Decode.string })
@@ -75,6 +77,7 @@ module Data =
           LatestReleaseDate: DateTime
           LatestRuntime: Version
           LatestSdk: Version
+          ReleaseType: string
           SupportPhase: string
           EolDate: DateTime option
           LifecyclePolicy: Url
@@ -88,6 +91,7 @@ module Data =
                       LatestReleaseDate = get.Required.Field "latest-release-date" Decode.datetime
                       LatestRuntime = get.Required.Field "latest-runtime" Decode.version
                       LatestSdk = get.Required.Field "latest-sdk" Decode.version
+                      ReleaseType = get.Required.Field "release-type" Decode.string
                       SupportPhase = get.Required.Field "support-phase" Decode.string
                       EolDate = get.Optional.Field "eol-date" Decode.datetime
                       LifecyclePolicy = get.Required.Field "lifecycle-policy" Decode.string
