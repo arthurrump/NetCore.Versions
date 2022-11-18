@@ -1,17 +1,12 @@
-#r "paket:
-nuget FSharp.Core 4.5.2 // Locked to be in sync with FAKE runtime
-nuget Fake.Core.SemVer
-nuget Fake.Core.Target 
-nuget Fake.DotNet.Cli
-nuget Fake.IO.FileSystem
-nuget Fake.Tools.Git //"
-#load "./.fake/build.fsx/intellisense.fsx"
-
-open Fake.Core
+﻿open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.DotNet
 open Fake.IO
 open Fake.Tools
+
+Context.FakeExecutionContext.Create false "Build.fs" (System.Environment.GetCommandLineArgs() |> Array.toList |> List.tail)
+|> Context.RuntimeContext.Fake
+|> Context.setExecutionContext
 
 let (</>) = Path.combine
 
@@ -131,8 +126,6 @@ Target.create "Pack" <| fun _ ->
             NoBuild = true
             OutputPath = Some packagesLocation }) 
 
-"Version" ==> "Build" ==> "Pack"
-
 Target.create "Publish" <| fun _ ->
     let version = Version.version.Value
     checksProj |> DotNet.publish (fun o ->
@@ -141,12 +134,7 @@ Target.create "Publish" <| fun _ ->
             NoBuild = true
             OutputPath = Some publishLocation })
 
-"Version" ==> "Build" ==> "Publish"
-
 Target.create "PackPub" ignore
-
-"Pack" ==> "PackPub"
-"Publish" ==> "PackPub"
 
 let tag version = sprintf "v%O" version
 
@@ -171,8 +159,16 @@ Target.create "PushTag" <| fun param ->
     | None ->
         failwith "Please specify the remote as an argument."
 
-"Tag" ==> "PushTag"
-"Version" ==> "PushTag"
-"Tag" ?=> "Version"
+let dependencies = [
+    "Version" ==> "Build" ==> "Pack"
+    "Version" ==> "Build" ==> "Publish"
+
+    "Pack" ==> "PackPub"
+    "Publish" ==> "PackPub"
+
+    "Tag" ==> "PushTag"
+    "Version" ==> "PushTag"
+    "Tag" ?=> "Version"
+]
 
 Target.runOrDefaultWithArguments "PackPub"

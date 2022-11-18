@@ -11,6 +11,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "NetCore.Versions.Checks", "
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "NetCore.Versions.Checks.Cli", "src\NetCore.Versions.Checks.Cli\NetCore.Versions.Checks.Cli.fsproj", "{817D1AB1-D61D-451B-BF14-623620050E7D}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Build", "Build.fsproj", "{800524DD-79E9-4BBD-BE0F-B7EC6A943120}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -60,6 +62,18 @@ Global
 		{817D1AB1-D61D-451B-BF14-623620050E7D}.Release|x64.Build.0 = Release|Any CPU
 		{817D1AB1-D61D-451B-BF14-623620050E7D}.Release|x86.ActiveCfg = Release|Any CPU
 		{817D1AB1-D61D-451B-BF14-623620050E7D}.Release|x86.Build.0 = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|x64.Build.0 = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Debug|x86.Build.0 = Debug|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|Any CPU.Build.0 = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|x64.ActiveCfg = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|x64.Build.0 = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|x86.ActiveCfg = Release|Any CPU
+		{800524DD-79E9-4BBD-BE0F-B7EC6A943120}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{699019E8-F713-4549-81E8-94FBD3B42E44} = {C98EB961-7E89-460E-85E9-362A3F4AB3DE}
