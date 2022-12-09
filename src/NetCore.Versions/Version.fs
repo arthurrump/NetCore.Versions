@@ -14,7 +14,7 @@ type Version =
     member private this.String =
         let s = this.Numbers |> List.map string |> String.concat "."
         match this.Preview with
-        | Some preview -> sprintf "%s-%s" s preview
+        | Some preview -> sprintf "%s%s" s preview
         | None -> s
 
     override this.ToString() = 
@@ -44,29 +44,33 @@ module Version =
             | _ -> None
 
     module private String =
-        let split (sep: char) (s: string) = s.Split(sep) |> Array.toList
         let trim (s: string) = s.Trim()
-        let toLowerInvariant (s: string) = s.ToLowerInvariant()
-
-    module private Option =
-        let mapList optionList = 
-            if optionList |> List.forall Option.isSome
-            then optionList |> List.map Option.get |> Some
-            else None
 
     let parse (s: string) =
-        match s |> String.trim |> String.toLowerInvariant |> String.split '-' with
-        | [ ] | [ "" ] -> None
-        | version::preview ->
-            version 
-            |> String.split '.'
-            |> List.filter (not << String.IsNullOrEmpty)
-            |> List.map Int.parse 
-            |> Option.mapList
-            |> Option.map (fun numbers -> 
-                { Numbers = numbers
-                  Preview = if preview.IsEmpty then None 
-                            else Some (preview |> String.concat "-") })
+        let rec parseNumbers numbersRev (str: char list) =
+            match str with
+            | ch::_ when Char.IsDigit ch ->
+                Seq.takeWhile Char.IsDigit str
+                |> Seq.toArray 
+                |> String 
+                |> Int.parse
+                |> Option.bind (fun i -> parseNumbers (i::numbersRev) (str |> List.skipWhile Char.IsDigit))
+            | '.'::str -> 
+                parseNumbers numbersRev str
+            | _ when not (List.isEmpty numbersRev) -> 
+                Some (List.rev numbersRev, str)
+            | _ ->
+                None
+        String.trim s 
+        |> Seq.toList 
+        |> parseNumbers []
+        |> Option.map (fun (numbers, rest) ->
+            { Numbers = 
+                numbers
+              Preview = 
+                if List.isEmpty rest
+                then None
+                else Some (String (List.toArray rest)) })
 
     let displayedAs display (version: Version) =
         string version = display

@@ -15,7 +15,6 @@
     <ProjectReference Include="..\NetCore.Versions\NetCore.Versions.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.6.2" />
     <PackageReference Include="Giraffe" Version="3.6.0" />
     <PackageReference Include="octokit" Version="0.32.0" />
     <PackageReference Include="githubjwt" Version="0.0.3" />
